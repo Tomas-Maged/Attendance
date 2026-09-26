@@ -1,0 +1,4233 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <title>تسجيل الحضور</title>
+
+  <!-- خط عربي -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- مكتبة قراءة QR -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <?!= include('CSS'); ?>
+</head>
+
+<body>
+
+  <!-- =====================================================
+       APP
+  ====================================================== -->
+  <div id="app">
+
+    <!-- ================= TOP BAR ================= -->
+    <header class="topbar">
+
+      <div class="topbar-title">
+        <div class="app-title">تسجيل الحضور</div>
+        <div class="app-subtitle">الكورسات والاجتماعات</div>
+      </div>
+
+      <div class="topbar-icon">
+        <span>✓</span>
+      </div>
+
+    </header>
+
+
+    <!-- =================================================
+         MAIN CONTENT
+    ================================================== -->
+    <main id="mainContent" class="main-content">
+
+      <!-- سيتم إنشاء المحتوى بواسطة JavaScript -->
+
+    </main>
+
+
+    <!-- =================================================
+         BOTTOM NAV
+    ================================================== -->
+    <nav class="bottom-nav">
+
+      <button
+        class="nav-item active"
+        onclick="goHome()">
+
+        <span class="nav-icon">⌂</span>
+        <span>الرئيسية</span>
+
+      </button>
+
+      <button
+        class="nav-item"
+        onclick="showAllAttendance()">
+
+        <span class="nav-icon">♙</span>
+        <span>الحضور</span>
+
+      </button>
+
+    </nav>
+
+
+    <!-- =================================================
+         FAB
+    ================================================== -->
+    <button
+      id="mainFab"
+      class="main-fab"
+      onclick="toggleMainFab()">
+
+      <span id="mainFabIcon">+</span>
+
+    </button>
+
+
+    <!-- =================================================
+         MAIN FAB MENU
+    ================================================== -->
+    <div id="mainFabMenu" class="fab-menu">
+
+      <button
+        class="fab-option"
+        onclick="openCreateActivity('course')">
+
+        <span class="fab-option-icon course-icon">🎓</span>
+
+        <span>
+          <strong>إضافة كورس</strong>
+          <small>إنشاء كورس جديد</small>
+        </span>
+
+      </button>
+
+
+      <button
+        class="fab-option"
+        onclick="openCreateActivity('meeting')">
+
+        <span class="fab-option-icon meeting-icon">👥</span>
+
+        <span>
+          <strong>إضافة اجتماع</strong>
+          <small>إنشاء اجتماع جديد</small>
+        </span>
+
+      </button>
+
+    </div>
+
+
+    <!-- =================================================
+         OVERLAY
+    ================================================== -->
+    <div
+      id="overlay"
+      class="overlay"
+      onclick="closeAllModals()">
+    </div>
+
+
+    <!-- =================================================
+         MODAL
+         إنشاء كورس / اجتماع
+    ================================================== -->
+    <section
+      id="createActivityModal"
+      class="bottom-sheet">
+
+      <div class="sheet-handle"></div>
+
+      <div class="sheet-header">
+
+        <div>
+          <h2 id="createActivityTitle">إضافة كورس</h2>
+          <p id="createActivitySubtitle">
+            اكتب اسم الكورس الجديد
+          </p>
+        </div>
+
+        <button
+          class="close-btn"
+          onclick="closeCreateActivity()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <div class="form-group">
+
+        <label id="activityNameLabel">
+          اسم الكورس
+        </label>
+
+        <input
+          id="activityNameInput"
+          class="text-input"
+          type="text"
+          autocomplete="off"
+          placeholder="اكتب الاسم هنا">
+
+      </div>
+
+
+      <button
+        class="primary-btn"
+        onclick="submitCreateActivity()">
+
+        إضافة
+
+      </button>
+
+    </section>
+
+
+    <!-- =================================================
+         LECTURE MODAL
+    ================================================== -->
+    <section
+      id="lectureModal"
+      class="bottom-sheet">
+
+      <div class="sheet-handle"></div>
+
+      <div class="sheet-header">
+
+        <div>
+
+          <h2>إضافة محاضرة</h2>
+
+          <p>
+            اكتب اسم المحاضرة
+          </p>
+
+        </div>
+
+        <button
+          class="close-btn"
+          onclick="closeLectureModal()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <div class="form-group">
+
+        <label>
+          اسم المحاضرة
+        </label>
+
+        <input
+          id="lectureNameInput"
+          class="text-input"
+          type="text"
+          autocomplete="off"
+          placeholder="مثال: المحاضرة الأولى">
+
+      </div>
+
+
+      <button
+        class="primary-btn"
+        onclick="submitCreateLecture()">
+
+        إضافة المحاضرة
+
+      </button>
+
+    </section>
+
+
+    <!-- =================================================
+         RENAME LECTURE
+    ================================================== -->
+    <section
+      id="renameLectureModal"
+      class="bottom-sheet">
+
+      <div class="sheet-handle"></div>
+
+      <div class="sheet-header">
+
+        <div>
+
+          <h2>تعديل اسم المحاضرة</h2>
+
+          <p>
+            يمكن تعديل اسم المحاضرة فقط
+          </p>
+
+        </div>
+
+        <button
+          class="close-btn"
+          onclick="closeRenameLecture()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <div class="form-group">
+
+        <label>
+          اسم المحاضرة
+        </label>
+
+        <input
+          id="renameLectureInput"
+          class="text-input"
+          type="text">
+
+      </div>
+
+
+      <button
+        class="primary-btn"
+        onclick="submitRenameLecture()">
+
+        حفظ التعديل
+
+      </button>
+
+    </section>
+
+
+    <!-- =================================================
+         SCAN SCREEN
+    ================================================== -->
+    <section
+      id="scanScreen"
+      class="full-screen">
+
+      <div class="scan-header">
+
+        <button
+          class="back-btn"
+          onclick="closeScanScreen()">
+
+          ←
+
+        </button>
+
+        <div>
+
+          <h2 id="scanLectureTitle">
+            المحاضرة
+          </h2>
+
+          <span>
+            تسجيل الحضور
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <!-- CAMERA -->
+      <div class="scanner-wrapper">
+
+        <div
+          id="reader"
+          class="qr-reader">
+        </div>
+
+
+        <!-- Scanner Frame -->
+        <div class="scanner-frame">
+
+          <div class="scanner-corner top-right"></div>
+          <div class="scanner-corner top-left"></div>
+          <div class="scanner-corner bottom-right"></div>
+          <div class="scanner-corner bottom-left"></div>
+
+          <div class="scanner-line"></div>
+
+        </div>
+
+
+        <div class="scanner-text">
+
+          وجّه الكاميرا إلى QR Code
+
+        </div>
+
+      </div>
+
+
+      <!-- MANUAL -->
+      <button
+        class="manual-scan-btn"
+        onclick="openManualAttendance()">
+
+        <span>✍️</span>
+
+        <span>
+          إضافة يدوية
+        </span>
+
+      </button>
+
+    </section>
+
+
+    <!-- =================================================
+         MANUAL ATTENDANCE
+    ================================================== -->
+    <section
+      id="manualModal"
+      class="bottom-sheet manual-sheet">
+
+      <div class="sheet-handle"></div>
+
+      <div class="sheet-header">
+
+        <div>
+
+          <h2>إضافة يدوية</h2>
+
+          <p id="manualLectureName">
+            تسجيل حضور
+          </p>
+
+        </div>
+
+        <button
+          class="close-btn"
+          onclick="closeManualAttendance()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <!-- Search -->
+      <div class="search-box">
+
+        <span>⌕</span>
+
+        <input
+          id="manualSearch"
+          type="text"
+          placeholder="ابحث عن اسم الشخص"
+          oninput="searchManualNames()">
+
+      </div>
+
+
+      <!-- Existing names -->
+      <div
+        id="manualNamesList"
+        class="manual-names-list">
+
+      </div>
+
+
+      <div class="manual-divider">
+
+        <span>أو</span>
+
+      </div>
+
+
+      <!-- New manual person -->
+      <div class="form-group">
+
+        <label>
+          إضافة اسم جديد بدون QR
+        </label>
+
+        <input
+          id="manualNewName"
+          class="text-input"
+          type="text"
+          placeholder="اكتب اسم الشخص">
+
+      </div>
+
+
+      <div class="two-buttons">
+
+        <button
+          class="secondary-btn"
+          onclick="closeManualAttendance()">
+
+          إلغاء
+
+        </button>
+
+
+        <button
+          class="primary-btn"
+          onclick="addNewManualPerson()">
+
+          إضافة
+
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =================================================
+         PERSON CONFIRMATION
+    ================================================== -->
+    <section
+      id="manualConfirmModal"
+      class="small-modal">
+
+      <div class="small-modal-icon">
+        👤
+      </div>
+
+      <h3 id="confirmPersonName">
+        اسم الشخص
+      </h3>
+
+      <p>
+        تسجيل حضور في
+      </p>
+
+      <strong id="confirmLectureName">
+        المحاضرة
+      </strong>
+
+
+      <div class="two-buttons">
+
+        <button
+          class="secondary-btn"
+          onclick="closeManualConfirm()">
+
+          إلغاء
+
+        </button>
+
+
+        <button
+          class="primary-btn"
+          onclick="confirmManualAttendance()">
+
+          إضافة
+
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =================================================
+         CERTIFICATE POPUP
+    ================================================== -->
+    <section
+      id="certificateModal"
+      class="certificate-modal">
+
+      <div class="certificate-header">
+
+        <div>
+
+          <h3>
+            الشهادة
+          </h3>
+
+          <p id="certificatePersonName">
+            اسم الشخص
+          </p>
+
+        </div>
+
+        <button
+          class="close-btn"
+          onclick="closeCertificate()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <div
+        id="certificatePreview"
+        class="certificate-preview">
+
+      </div>
+
+
+      <div class="certificate-actions">
+
+        <button
+          class="secondary-btn"
+          onclick="shareCertificate()">
+
+          مشاركة
+
+        </button>
+
+        <button
+          class="primary-btn"
+          onclick="downloadCertificate()">
+
+          تنزيل
+
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =================================================
+         TOAST
+         رسالة مؤقتة صغيرة
+    ================================================== -->
+    <div
+      id="toast"
+      class="toast">
+
+      <div
+        id="toastIcon"
+        class="toast-icon">
+      </div>
+
+      <div>
+
+        <div
+          id="toastTitle"
+          class="toast-title">
+        </div>
+
+        <div
+          id="toastMessage"
+          class="toast-message">
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- =================================================
+         LOADING
+    ================================================== -->
+    <div
+      id="loading"
+      class="loading">
+
+      <div class="loading-spinner"></div>
+
+      <span id="loadingText">
+        جاري التحميل...
+      </span>
+
+    </div>
+
+  </div>
+
+
+<script>
+
+/* =====================================================
+   GLOBAL STATE
+===================================================== */
+
+let activities = [];
+
+let currentActivity = null;
+
+let currentLecture = null;
+
+let currentActivityType = null;
+
+let currentManualPerson = null;
+
+let scanner = null;
+
+let scannerRunning = false;
+
+let mainFabOpened = false;
+
+let currentCertificate = null;
+
+
+/* =====================================================
+   INITIALIZATION
+===================================================== */
+
+document.addEventListener("DOMContentLoaded", function () {
+
+  loadActivities();
+
+});
+
+
+/* =====================================================
+   SERVER HELPER
+===================================================== */
+
+function server(functionName, ...args) {
+
+  return new Promise((resolve, reject) => {
+
+    if (
+      typeof google === "undefined" ||
+      !google.script ||
+      !google.script.run
+    ) {
+
+      reject(
+        new Error(
+          "Google Apps Script غير متاح"
+        )
+      );
+
+      return;
+    }
+
+
+    google.script.run
+
+      .withSuccessHandler(function (result) {
+
+        resolve(result);
+
+      })
+
+      .withFailureHandler(function (error) {
+
+        console.error(error);
+
+        reject(error);
+
+      })
+
+      [functionName](...args);
+
+  });
+
+}
+
+
+/* =====================================================
+   LOADING
+===================================================== */
+
+function showLoading(text = "جاري التحميل...") {
+
+  document.getElementById("loadingText").textContent = text;
+
+  document.getElementById("loading").classList.add("show");
+
+}
+
+
+function hideLoading() {
+
+  document
+    .getElementById("loading")
+    .classList.remove("show");
+
+}
+
+
+/* =====================================================
+   TOAST
+===================================================== */
+
+let toastTimer = null;
+
+
+function showToast(
+  type,
+  title,
+  message = "",
+  duration = 3000
+) {
+
+  const toast =
+    document.getElementById("toast");
+
+  const icon =
+    document.getElementById("toastIcon");
+
+  const titleEl =
+    document.getElementById("toastTitle");
+
+  const messageEl =
+    document.getElementById("toastMessage");
+
+
+  toast.className =
+    "toast " + type;
+
+
+  if (type === "success") {
+
+    icon.textContent = "✓";
+
+  }
+  else if (type === "error") {
+
+    icon.textContent = "×";
+
+  }
+  else {
+
+    icon.textContent = "i";
+
+  }
+
+
+  titleEl.textContent = title;
+
+  messageEl.textContent = message;
+
+
+  toast.classList.add("show");
+
+
+  clearTimeout(toastTimer);
+
+
+  toastTimer = setTimeout(function () {
+
+    toast.classList.remove("show");
+
+  }, duration);
+
+}
+
+
+/* =====================================================
+   HOME
+===================================================== */
+
+function loadActivities() {
+
+  showLoading("جاري تحميل البيانات...");
+
+
+  server("getActivities")
+
+    .then(function (data) {
+
+      activities = Array.isArray(data)
+        ? data
+        : [];
+
+
+      renderHome();
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      showToast(
+        "error",
+        "حدث خطأ",
+        "تعذر تحميل البيانات"
+      );
+
+    })
+
+    .finally(function () {
+
+      hideLoading();
+
+    });
+
+}
+
+
+/* =====================================================
+   RENDER HOME
+===================================================== */
+
+function renderHome() {
+
+  const container =
+    document.getElementById("mainContent");
+
+
+  let html = `
+
+    <div class="page-heading">
+
+      <div>
+
+        <h1>الرئيسية</h1>
+
+        <p>
+          الكورسات والاجتماعات
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <div class="home-search">
+
+      <span>⌕</span>
+
+      <input
+        id="homeSearch"
+        type="text"
+        placeholder="ابحث عن كورس أو اجتماع..."
+        oninput="filterActivities()">
+
+    </div>
+
+
+    <div class="filter-row">
+
+      <button
+        class="filter-chip active"
+        onclick="setActivityFilter('all', this)">
+
+        الكل
+
+      </button>
+
+
+      <button
+        class="filter-chip"
+        onclick="setActivityFilter('course', this)">
+
+        🎓 كورسات
+
+      </button>
+
+
+      <button
+        class="filter-chip"
+        onclick="setActivityFilter('meeting', this)">
+
+        👥 اجتماعات
+
+      </button>
+
+    </div>
+
+
+    <div
+      id="activitiesList"
+      class="activities-list">
+
+    </div>
+
+  `;
+
+
+  container.innerHTML = html;
+
+
+  renderActivitiesList();
+
+}
+
+
+/* =====================================================
+   ACTIVITY FILTER
+===================================================== */
+
+let currentActivityFilter = "all";
+
+
+function setActivityFilter(filter, button) {
+
+  currentActivityFilter = filter;
+
+
+  document
+    .querySelectorAll(".filter-chip")
+    .forEach(function (el) {
+
+      el.classList.remove("active");
+
+    });
+
+
+  button.classList.add("active");
+
+
+  renderActivitiesList();
+
+}
+
+
+function filterActivities() {
+
+  renderActivitiesList();
+
+}
+
+
+/* =====================================================
+   ACTIVITIES LIST
+===================================================== */
+
+function renderActivitiesList() {
+
+  const list =
+    document.getElementById("activitiesList");
+
+
+  if (!list) return;
+
+
+  const search =
+    (
+      document.getElementById("homeSearch")?.value
+      || ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const filtered =
+    activities.filter(function (activity) {
+
+      const name =
+        String(
+          activity.name ||
+          activity.title ||
+          ""
+        );
+
+
+      const matchesSearch =
+        !search ||
+        name.toLowerCase().includes(search);
+
+
+      const type =
+        activity.type ||
+        activity.activityType ||
+        "course";
+
+
+      const matchesType =
+        currentActivityFilter === "all" ||
+        currentActivityFilter === type;
+
+
+      return matchesSearch && matchesType;
+
+    });
+
+
+  if (filtered.length === 0) {
+
+    list.innerHTML = `
+
+      <div class="empty-state">
+
+        <div class="empty-icon">
+          📋
+        </div>
+
+        <h3>
+          لا توجد بيانات
+        </h3>
+
+        <p>
+          ابدأ بإضافة كورس أو اجتماع
+        </p>
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  list.innerHTML =
+    filtered.map(
+      activityCard
+    ).join("");
+
+}
+
+
+/* =====================================================
+   ACTIVITY CARD
+===================================================== */
+
+function activityCard(activity, index) {
+
+  const type =
+    activity.type ||
+    activity.activityType ||
+    "course";
+
+
+  const isCourse =
+    type === "course";
+
+
+  const icon =
+    isCourse
+      ? "🎓"
+      : "👥";
+
+
+  const name =
+    activity.name ||
+    activity.title ||
+    "بدون اسم";
+
+
+  const total =
+    activity.totalAttendance ??
+    activity.total ??
+    activity.attendanceCount ??
+    0;
+
+
+  const lectures =
+    activity.lectures ||
+    [];
+
+
+  const activityJson =
+    encodeURIComponent(
+      JSON.stringify(activity)
+    );
+
+
+  return `
+
+    <article class="activity-card">
+
+      <div
+        class="activity-card-header"
+        onclick="openActivity(${indexOfActivity(activity)})">
+
+        <div class="activity-main">
+
+          <div class="activity-icon ${isCourse ? "course" : "meeting"}">
+            ${icon}
+          </div>
+
+          <div>
+
+            <h3>
+              ${escapeHtml(name)}
+            </h3>
+
+            <span class="activity-type">
+              ${isCourse ? "كورس" : "اجتماع"}
+            </span>
+
+          </div>
+
+        </div>
+
+
+        <div class="activity-total">
+
+          <strong>
+            ${total}
+          </strong>
+
+          <span>
+            حضور فعلي
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="activity-actions">
+
+        <button
+          class="outline-action"
+          onclick="event.stopPropagation(); openActivity(${indexOfActivity(activity)})">
+
+          عرض كشف الحضور
+
+        </button>
+
+
+        <button
+          class="text-action"
+          onclick="event.stopPropagation(); openLectureModal(${indexOfActivity(activity)})">
+
+          + إضافة محاضرة
+
+        </button>
+
+
+        <button
+          class="expand-btn"
+          onclick="event.stopPropagation(); toggleLectures(this)">
+
+          ↓
+
+        </button>
+
+      </div>
+
+
+      <div class="lectures-container">
+
+        ${
+          lectures.length
+            ? lectures.map(
+                function (lecture) {
+
+                  return lectureRow(
+                    activity,
+                    lecture
+                  );
+
+                }
+              ).join("")
+            : `
+              <div class="no-lectures">
+                لا توجد محاضرات حتى الآن
+              </div>
+            `
+        }
+
+      </div>
+
+    </article>
+
+  `;
+
+}
+
+
+/* =====================================================
+   FIND ACTIVITY INDEX
+===================================================== */
+
+function indexOfActivity(activity) {
+
+  return activities.indexOf(activity);
+
+}
+
+
+/* =====================================================
+   LECTURE ROW
+===================================================== */
+
+function lectureRow(activity, lecture) {
+
+  const lectureName =
+    lecture.name ||
+    lecture.title ||
+    "محاضرة";
+
+
+  const attendance =
+    lecture.attendance ??
+    lecture.count ??
+    0;
+
+
+  return `
+
+    <div
+      class="lecture-row"
+      onclick="openLecture(${JSON.stringify(
+        activity
+      )}, ${JSON.stringify(
+        lecture
+      )})">
+
+      <div>
+
+        <div class="lecture-name">
+
+          ${escapeHtml(lectureName)}
+
+        </div>
+
+        <div class="lecture-meta">
+
+          👥 ${attendance} حضور
+
+        </div>
+
+      </div>
+
+
+      <div class="lecture-actions">
+
+        <button
+          class="lecture-edit"
+          onclick="event.stopPropagation(); openRenameLecture(${JSON.stringify(activity)}, ${JSON.stringify(lecture)})">
+
+          ✎
+
+        </button>
+
+
+        <span>
+          ←
+        </span>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =====================================================
+   TOGGLE LECTURES
+===================================================== */
+
+function toggleLectures(button) {
+
+  const card =
+    button.closest(".activity-card");
+
+
+  const container =
+    card.querySelector(
+      ".lectures-container"
+    );
+
+
+  const isOpen =
+    container.classList.contains("show");
+
+
+  container.classList.toggle(
+    "show"
+  );
+
+
+  button.textContent =
+    isOpen
+      ? "↓"
+      : "↑";
+
+}
+
+
+/* =====================================================
+   OPEN ACTIVITY
+===================================================== */
+
+function openActivity(index) {
+
+  const activity =
+    activities[index];
+
+
+  if (!activity) return;
+
+
+  currentActivity = activity;
+
+
+  renderActivityDetails();
+
+}
+
+
+/* =====================================================
+   ACTIVITY DETAILS
+===================================================== */
+
+function renderActivityDetails() {
+
+  const activity =
+    currentActivity;
+
+
+  const container =
+    document.getElementById("mainContent");
+
+
+  const type =
+    activity.type ||
+    activity.activityType ||
+    "course";
+
+
+  const isCourse =
+    type === "course";
+
+
+  const lectures =
+    activity.lectures ||
+    [];
+
+
+  container.innerHTML = `
+
+    <div class="details-header">
+
+      <button
+        class="back-btn"
+        onclick="goHome()">
+
+        →
+
+      </button>
+
+
+      <div>
+
+        <h1>
+          ${escapeHtml(activity.name || activity.title || "")}
+        </h1>
+
+        <span>
+          ${isCourse ? "كورس" : "اجتماع"}
+        </span>
+
+      </div>
+
+    </div>
+
+
+    <div class="stats-grid">
+
+      <div class="stat-card">
+
+        <span>
+          إجمالي الحضور
+        </span>
+
+        <strong>
+          ${activity.totalAttendance || 0}
+        </strong>
+
+      </div>
+
+
+      <div class="stat-card">
+
+        <span>
+          عدد المحاضرات
+        </span>
+
+        <strong>
+          ${lectures.length}
+        </strong>
+
+      </div>
+
+    </div>
+
+
+    <div class="section-title-row">
+
+      <h2>
+        المحاضرات
+      </h2>
+
+
+      <button
+        class="small-primary-btn"
+        onclick="openLectureModalForCurrent()">
+
+        + محاضرة
+
+      </button>
+
+    </div>
+
+
+    <div class="detail-lectures">
+
+      ${
+        lectures.length
+          ? lectures.map(
+              function (lecture) {
+
+                return detailLectureCard(
+                  lecture
+                );
+
+              }
+            ).join("")
+          : `
+            <div class="empty-state compact">
+
+              <div class="empty-icon">
+                📅
+              </div>
+
+              <h3>
+                لا توجد محاضرات حتى الآن
+              </h3>
+
+              <p>
+                ابدأ بإضافة أول محاضرة
+              </p>
+
+            </div>
+          `
+      }
+
+    </div>
+
+
+    <button
+      class="full-attendance-btn"
+      onclick="openActivityAttendance()">
+
+      عرض كشف الحضور الكامل
+
+      <span>
+        ←
+      </span>
+
+    </button>
+
+  `;
+
+}
+
+
+/* =====================================================
+   DETAIL LECTURE CARD
+===================================================== */
+
+function detailLectureCard(lecture) {
+
+  return `
+
+    <div class="detail-lecture-card">
+
+      <div
+        class="detail-lecture-main"
+        onclick="openLecture(currentActivity, ${JSON.stringify(lecture)})">
+
+        <div class="lecture-calendar">
+          📅
+        </div>
+
+        <div>
+
+          <h3>
+            ${escapeHtml(
+              lecture.name ||
+              lecture.title ||
+              "المحاضرة"
+            )}
+          </h3>
+
+          <p>
+            ${lecture.attendance || 0}
+            حضور فعلي
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="detail-lecture-buttons">
+
+        <button
+          onclick="openLecture(currentActivity, ${JSON.stringify(lecture)})">
+
+          عرض الحضور
+
+        </button>
+
+
+        <button
+          onclick="openRenameLecture(currentActivity, ${JSON.stringify(lecture)})">
+
+          ✎
+
+        </button>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =====================================================
+   OPEN LECTURE
+===================================================== */
+
+function openLecture(activity, lecture) {
+
+  currentActivity = activity;
+
+  currentLecture = lecture;
+
+
+  showLectureAttendance();
+
+}
+
+
+/* =====================================================
+   LECTURE ATTENDANCE
+===================================================== */
+
+function showLectureAttendance() {
+
+  showLoading("جاري تحميل الحضور...");
+
+
+  const activityName =
+    currentActivity.name ||
+    currentActivity.title;
+
+
+  const lectureName =
+    currentLecture.name ||
+    currentLecture.title;
+
+
+  server(
+    "getLectureAttendance",
+    activityName,
+    lectureName
+  )
+
+    .then(function (people) {
+
+      renderLectureAttendance(
+        Array.isArray(people)
+          ? people
+          : []
+      );
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      showToast(
+        "error",
+        "حدث خطأ",
+        "تعذر تحميل كشف الحضور"
+      );
+
+    })
+
+    .finally(function () {
+
+      hideLoading();
+
+    });
+
+}
+
+
+/* =====================================================
+   RENDER LECTURE ATTENDANCE
+===================================================== */
+
+function renderLectureAttendance(people) {
+
+  const container =
+    document.getElementById("mainContent");
+
+
+  const lectureName =
+    currentLecture.name ||
+    currentLecture.title;
+
+
+  container.innerHTML = `
+
+    <div class="attendance-page">
+
+      <div class="details-header">
+
+        <button
+          class="back-btn"
+          onclick="renderActivityDetails()">
+
+          →
+
+        </button>
+
+
+        <div>
+
+          <h1>
+            ${escapeHtml(lectureName)}
+          </h1>
+
+          <span>
+            كشف الحضور
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="attendance-tools">
+
+        <div class="search-box">
+
+          <span>⌕</span>
+
+          <input
+            id="attendanceSearch"
+            type="text"
+            placeholder="ابحث عن اسم..."
+            oninput="filterAttendance()">
+
+        </div>
+
+
+        <div class="filter-row">
+
+          <button
+            class="filter-chip active"
+            onclick="setAttendanceFilter('all', this)">
+
+            الكل
+
+          </button>
+
+
+          <button
+            class="filter-chip"
+            onclick="setAttendanceFilter('id', this)">
+
+            QR
+
+          </button>
+
+
+          <button
+            class="filter-chip"
+            onclick="setAttendanceFilter('manual', this)">
+
+            يدوي
+
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div
+        id="attendanceList"
+        class="attendance-list">
+
+      </div>
+
+
+      <button
+        class="attendance-fab"
+        onclick="openScanScreen()">
+
+        +
+
+      </button>
+
+    </div>
+
+  `;
+
+
+  window.currentAttendance =
+    people;
+
+
+  window.currentAttendanceFilter =
+    "all";
+
+
+  renderAttendanceList();
+
+}
+
+
+/* =====================================================
+   ATTENDANCE FILTER
+===================================================== */
+
+function setAttendanceFilter(
+  filter,
+  button
+) {
+
+  window.currentAttendanceFilter =
+    filter;
+
+
+  document
+    .querySelectorAll(".attendance-page .filter-chip")
+    .forEach(function (el) {
+
+      el.classList.remove("active");
+
+    });
+
+
+  button.classList.add("active");
+
+
+  renderAttendanceList();
+
+}
+
+
+function filterAttendance() {
+
+  renderAttendanceList();
+
+}
+
+
+/* =====================================================
+   ATTENDANCE LIST
+===================================================== */
+
+function renderAttendanceList() {
+
+  const list =
+    document.getElementById(
+      "attendanceList"
+    );
+
+
+  if (!list) return;
+
+
+  const search =
+    (
+      document.getElementById(
+        "attendanceSearch"
+      )?.value || ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const filter =
+    window.currentAttendanceFilter ||
+    "all";
+
+
+  const people =
+    (
+      window.currentAttendance ||
+      []
+    )
+      .filter(function (person) {
+
+        const name =
+          String(
+            person.name ||
+            person.fullName ||
+            ""
+          );
+
+
+        const matchesSearch =
+          !search ||
+          name
+            .toLowerCase()
+            .includes(search);
+
+
+        const hasId =
+          !!(
+            person.id ||
+            person.ID
+          );
+
+
+        const matchesFilter =
+          filter === "all" ||
+          (filter === "id" && hasId) ||
+          (filter === "manual" && !hasId);
+
+
+        return (
+          matchesSearch &&
+          matchesFilter
+        );
+
+      });
+
+
+  if (people.length === 0) {
+
+    list.innerHTML = `
+
+      <div class="empty-state compact">
+
+        <div class="empty-icon">
+          👥
+        </div>
+
+        <h3>
+          لا يوجد حضور حتى الآن
+        </h3>
+
+        <p>
+          ابدأ بتسجيل الحضور
+        </p>
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  list.innerHTML =
+    people
+      .map(attendancePersonCard)
+      .join("");
+
+}
+
+
+/* =====================================================
+   PERSON CARD
+===================================================== */
+
+function attendancePersonCard(person) {
+
+  const name =
+    person.name ||
+    person.fullName ||
+    "";
+
+
+  const id =
+    person.id ||
+    person.ID ||
+    "";
+
+
+  const count =
+    person.count ||
+    person.attendanceCount ||
+    person.totalAttendance ||
+    1;
+
+
+  const records =
+    person.records ||
+    person.attendances ||
+    [];
+
+
+  const certificate =
+    person.certificate ||
+    person.certificateUrl ||
+    "";
+
+
+  return `
+
+    <article class="person-card">
+
+      <div class="person-card-top">
+
+        <div class="person-avatar">
+          ${getInitials(name)}
+        </div>
+
+
+        <div class="person-info">
+
+          <h3>
+            ${escapeHtml(name)}
+          </h3>
+
+
+          ${
+            id
+              ? `
+                <span class="person-id">
+                  ID: ${escapeHtml(id)}
+                </span>
+              `
+              : `
+                <span class="manual-badge">
+                  إضافة يدوية
+                </span>
+              `
+          }
+
+        </div>
+
+
+        <div class="attendance-count">
+
+          <span>
+            ${count}
+          </span>
+
+          <small>
+            مرات
+          </small>
+
+        </div>
+
+      </div>
+
+
+      <div class="attendance-records">
+
+        ${
+          records.length
+            ? records
+                .map(function (record) {
+
+                  return `
+
+                    <div class="attendance-record">
+
+                      <span class="record-name">
+
+                        ${escapeHtml(
+                          record.lecture ||
+                          record.lectureName ||
+                          "المحاضرة"
+                        )}
+
+                      </span>
+
+
+                      <span class="record-date">
+
+                        ${escapeHtml(
+                          record.date ||
+                          record.time ||
+                          ""
+                        )}
+
+                      </span>
+
+                    </div>
+
+                  `;
+
+                })
+                .join("")
+            : `
+              <div class="attendance-record">
+
+                <span>
+                  ${escapeHtml(
+                    currentLecture?.name ||
+                    "المحاضرة الحالية"
+                  )}
+                </span>
+
+                <span>
+                  ${escapeHtml(
+                    person.date ||
+                    person.time ||
+                    ""
+                  )}
+                </span>
+
+              </div>
+            `
+        }
+
+      </div>
+
+
+      ${
+        certificate
+          ? `
+
+            <button
+              class="certificate-btn"
+              onclick="openCertificate(${JSON.stringify(person)})">
+
+              <span>
+                ◉
+              </span>
+
+              الشهادة
+
+            </button>
+
+          `
+          : ""
+      }
+
+    </article>
+
+  `;
+
+}
+
+
+/* =====================================================
+   SCAN SCREEN
+===================================================== */
+
+function openScanScreen() {
+
+  if (!currentActivity || !currentLecture) {
+
+    showToast(
+      "error",
+      "خطأ",
+      "لم يتم تحديد المحاضرة"
+    );
+
+    return;
+
+  }
+
+
+  document
+    .getElementById("scanScreen")
+    .classList.add("show");
+
+
+  document.getElementById(
+    "scanLectureTitle"
+  ).textContent =
+    currentLecture.name ||
+    currentLecture.title ||
+    "المحاضرة";
+
+
+  startScanner();
+
+}
+
+
+async function startScanner() {
+
+  if (scannerRunning) return;
+
+
+  try {
+
+    scanner =
+      new Html5Qrcode(
+        "reader"
+      );
+
+
+    await scanner.start(
+
+      {
+        facingMode: "environment"
+      },
+
+      {
+        fps: 10,
+
+        qrbox: {
+          width: 250,
+          height: 250
+        },
+
+        aspectRatio: 1
+
+      },
+
+      onQrSuccess,
+
+      onQrError
+
+    );
+
+
+    scannerRunning = true;
+
+  }
+
+  catch (error) {
+
+    console.error(error);
+
+    showToast(
+      "error",
+      "تعذر فتح الكاميرا",
+      "تأكد من السماح باستخدام الكاميرا"
+    );
+
+  }
+
+}
+
+
+function onQrError(errorMessage) {
+
+  // لا نفعل أي شيء.
+  // أخطاء البحث العادية لا تظهر للمستخدم.
+
+}
+
+
+/* =====================================================
+   QR SUCCESS
+===================================================== */
+
+let processingQr = false;
+
+
+async function onQrSuccess(decodedText) {
+
+  if (processingQr) return;
+
+
+  processingQr = true;
+
+
+  try {
+
+    await handleQrAttendance(
+      decodedText
+    );
+
+  }
+
+  catch (error) {
+
+    console.error(error);
+
+    showToast(
+      "error",
+      "حدث خطأ",
+      "تعذر تسجيل الحضور"
+    );
+
+  }
+
+  finally {
+
+    /*
+      مهم:
+      ننتظر قليلًا حتى لا يتم قراءة نفس QR
+      عدة مرات من نفس إطار الكاميرا.
+    */
+
+    setTimeout(function () {
+
+      processingQr = false;
+
+    }, 1200);
+
+  }
+
+}
+
+
+/* =====================================================
+   QR ATTENDANCE
+===================================================== */
+
+async function handleQrAttendance(
+  qrValue
+) {
+
+  if (!currentActivity || !currentLecture) {
+
+    return;
+
+  }
+
+
+  try {
+
+    const result =
+      await server(
+        "recordQrAttendance",
+        currentActivity.name ||
+          currentActivity.title,
+        currentLecture.name ||
+          currentLecture.title,
+        qrValue
+      );
+
+
+    if (
+      result &&
+      result.success
+    ) {
+
+      playSuccessBeep();
+
+
+      showToast(
+        "success",
+        "تم تسجيل الحضور",
+        result.name ||
+          "تم تسجيل الحضور",
+        3000
+      );
+
+
+      /*
+        نعيد تحميل البيانات بعد التسجيل
+        بدون إغلاق الكاميرا.
+      */
+
+      refreshCurrentAttendanceSilently();
+
+    }
+
+    else {
+
+      playErrorBeep();
+
+
+      showToast(
+        "error",
+        "تم تسجيل الحضور بالفعل",
+        result?.name ||
+          "هذا الشخص مسجل بالفعل في المحاضرة الحالية",
+        4000
+      );
+
+    }
+
+  }
+
+  catch (error) {
+
+    console.error(error);
+
+    playErrorBeep();
+
+
+    showToast(
+      "error",
+      "لم يتم تسجيل الحضور",
+      error.message ||
+        "QR غير صالح أو الشخص غير موجود",
+      4000
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   BEEP
+===================================================== */
+
+function playSuccessBeep() {
+
+  playBeep(
+    900,
+    100
+  );
+
+}
+
+
+function playErrorBeep() {
+
+  playBeep(
+    250,
+    180
+  );
+
+}
+
+
+function playBeep(
+  frequency,
+  duration
+) {
+
+  try {
+
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+
+    const context =
+      new AudioContext();
+
+
+    const oscillator =
+      context.createOscillator();
+
+
+    const gain =
+      context.createGain();
+
+
+    oscillator.frequency.value =
+      frequency;
+
+
+    oscillator.type =
+      "sine";
+
+
+    gain.gain.value =
+      0.08;
+
+
+    oscillator.connect(
+      gain
+    );
+
+
+    gain.connect(
+      context.destination
+    );
+
+
+    oscillator.start();
+
+
+    setTimeout(function () {
+
+      oscillator.stop();
+
+      context.close();
+
+    }, duration);
+
+  }
+
+  catch (e) {
+
+    console.log(
+      "Audio unavailable"
+    );
+
+  }
+
+}
+
+
+/* =====================================================
+   REFRESH ATTENDANCE
+===================================================== */
+
+function refreshCurrentAttendanceSilently() {
+
+  server(
+    "getLectureAttendance",
+    currentActivity.name ||
+      currentActivity.title,
+    currentLecture.name ||
+      currentLecture.title
+  )
+
+    .then(function (people) {
+
+      window.currentAttendance =
+        Array.isArray(people)
+          ? people
+          : [];
+
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+    });
+
+}
+
+
+/* =====================================================
+   CLOSE SCAN
+===================================================== */
+
+async function closeScanScreen() {
+
+  await stopScanner();
+
+
+  document
+    .getElementById("scanScreen")
+    .classList.remove("show");
+
+
+  /*
+    بعد الخروج من Scan
+    نعيد تحميل كشف الحضور.
+  */
+
+  showLectureAttendance();
+
+}
+
+
+async function stopScanner() {
+
+  if (
+    scanner &&
+    scannerRunning
+  ) {
+
+    try {
+
+      await scanner.stop();
+
+      scanner.clear();
+
+    }
+
+    catch (error) {
+
+      console.error(error);
+
+    }
+
+  }
+
+
+  scanner = null;
+
+  scannerRunning = false;
+
+}
+
+
+/* =====================================================
+   MANUAL ATTENDANCE
+===================================================== */
+
+function openManualAttendance() {
+
+  document
+    .getElementById("manualModal")
+    .classList.add("show");
+
+
+  document
+    .getElementById("overlay")
+    .classList.add("show");
+
+
+  document
+    .getElementById("manualSearch")
+    .value = "";
+
+
+  document
+    .getElementById("manualNewName")
+    .value = "";
+
+
+  document.getElementById(
+    "manualLectureName"
+  ).textContent =
+    currentLecture?.name ||
+    "تسجيل حضور";
+
+
+  loadManualNames();
+
+}
+
+
+function closeManualAttendance() {
+
+  document
+    .getElementById("manualModal")
+    .classList.remove("show");
+
+
+  document
+    .getElementById("overlay")
+    .classList.remove("show");
+
+}
+
+
+/* =====================================================
+   LOAD MANUAL NAMES
+===================================================== */
+
+function loadManualNames() {
+
+  const list =
+    document.getElementById(
+      "manualNamesList"
+    );
+
+
+  list.innerHTML = `
+
+    <div class="small-loading">
+      جاري تحميل الأسماء...
+    </div>
+
+  `;
+
+
+  server(
+    "getManualCandidates",
+    currentActivity.name ||
+      currentActivity.title,
+    currentLecture.name ||
+      currentLecture.title
+  )
+
+    .then(function (people) {
+
+      window.manualCandidates =
+        Array.isArray(people)
+          ? people
+          : [];
+
+
+      renderManualNames();
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      list.innerHTML = `
+
+        <div class="small-loading">
+          لا توجد أسماء
+        </div>
+
+      `;
+
+    });
+
+}
+
+
+/* =====================================================
+   MANUAL SEARCH
+===================================================== */
+
+function searchManualNames() {
+
+  renderManualNames();
+
+}
+
+
+function renderManualNames() {
+
+  const list =
+    document.getElementById(
+      "manualNamesList"
+    );
+
+
+  if (!list) return;
+
+
+  const search =
+    (
+      document.getElementById(
+        "manualSearch"
+      )?.value || ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const candidates =
+    (
+      window.manualCandidates ||
+      []
+    )
+      .filter(function (person) {
+
+        const name =
+          String(
+            person.name ||
+            person.fullName ||
+            ""
+          );
+
+
+        return (
+          !search ||
+          name
+            .toLowerCase()
+            .includes(search)
+        );
+
+      });
+
+
+  if (candidates.length === 0) {
+
+    list.innerHTML = `
+
+      <div class="no-search-results">
+
+        لا توجد نتائج
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  list.innerHTML =
+    candidates
+      .map(function (person) {
+
+        const name =
+          person.name ||
+          person.fullName ||
+          "";
+
+
+        const count =
+          person.count ||
+          person.attendanceCount ||
+          0;
+
+
+        const already =
+          !!person.alreadyAttended;
+
+
+        return `
+
+          <div class="manual-person-row">
+
+            <div>
+
+              <strong>
+                ${escapeHtml(name)}
+              </strong>
+
+              <span>
+                ${count} حضور سابق
+              </span>
+
+            </div>
+
+
+            ${
+              already
+                ? `
+                  <span class="already-added">
+                    ✓ تمت الإضافة
+                  </span>
+                `
+                : `
+                  <button
+                    class="add-person-btn"
+                    onclick="selectManualPerson(${JSON.stringify(person)})">
+
+                    +
+
+                  </button>
+                `
+            }
+
+          </div>
+
+        `;
+
+      })
+      .join("");
+
+}
+
+
+/* =====================================================
+   SELECT MANUAL PERSON
+===================================================== */
+
+function selectManualPerson(person) {
+
+  currentManualPerson =
+    person;
+
+
+  document
+    .getElementById(
+      "confirmPersonName"
+    )
+    .textContent =
+      person.name ||
+      person.fullName ||
+      "";
+
+
+  document
+    .getElementById(
+      "confirmLectureName"
+    )
+    .textContent =
+      currentLecture.name ||
+      currentLecture.title;
+
+
+  document
+    .getElementById(
+      "manualConfirmModal"
+    )
+    .classList.add("show");
+
+
+}
+
+
+/* =====================================================
+   CONFIRM MANUAL
+===================================================== */
+
+function confirmManualAttendance() {
+
+  if (!currentManualPerson) {
+
+    return;
+
+  }
+
+
+  showLoading("جاري تسجيل الحضور...");
+
+
+  server(
+    "recordManualAttendance",
+    currentActivity.name ||
+      currentActivity.title,
+    currentLecture.name ||
+      currentLecture.title,
+    currentManualPerson
+  )
+
+    .then(function (result) {
+
+      if (
+        result &&
+        result.success
+      ) {
+
+        closeManualConfirm();
+
+        closeManualAttendance();
+
+
+        showToast(
+          "success",
+          "تم تسجيل الحضور",
+          result.name ||
+            currentManualPerson.name,
+          3000
+        );
+
+
+        refreshCurrentAttendanceSilently();
+
+      }
+
+      else {
+
+        showToast(
+          "error",
+          "تم تسجيل الحضور بالفعل",
+          result?.name ||
+            "هذا الشخص مسجل بالفعل"
+        );
+
+      }
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      showToast(
+        "error",
+        "حدث خطأ",
+        error.message ||
+          "تعذر تسجيل الحضور"
+      );
+
+    })
+
+    .finally(function () {
+
+      hideLoading();
+
+      currentManualPerson =
+        null;
+
+    });
+
+}
+
+
+/* =====================================================
+   NEW MANUAL PERSON
+===================================================== */
+
+function addNewManualPerson() {
+
+  const input =
+    document.getElementById(
+      "manualNewName"
+    );
+
+
+  const name =
+    input.value.trim();
+
+
+  if (!name) {
+
+    showToast(
+      "error",
+      "اكتب الاسم أولًا"
+    );
+
+    input.focus();
+
+    return;
+
+  }
+
+
+  showLoading("جاري إضافة الحضور...");
+
+
+  server(
+    "recordNewManualAttendance",
+    currentActivity.name ||
+      currentActivity.title,
+    currentLecture.name ||
+      currentLecture.title,
+    name
+  )
+
+    .then(function (result) {
+
+      if (
+        result &&
+        result.success
+      ) {
+
+        input.value = "";
+
+
+        showToast(
+          "success",
+          "تم تسجيل الحضور",
+          name,
+          3000
+        );
+
+
+        refreshCurrentAttendanceSilently();
+
+      }
+
+      else {
+
+        showToast(
+          "error",
+          "تم تسجيل الحضور بالفعل",
+          result?.name ||
+            name
+        );
+
+      }
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      showToast(
+        "error",
+        "حدث خطأ",
+        error.message ||
+          "تعذر إضافة الاسم"
+      );
+
+    })
+
+    .finally(function () {
+
+      hideLoading();
+
+    });
+
+}
+
+
+/* =====================================================
+   CONFIRM MODAL
+===================================================== */
+
+function closeManualConfirm() {
+
+  document
+    .getElementById(
+      "manualConfirmModal"
+    )
+    .classList.remove("show");
+
+}
+
+
+/* =====================================================
+   CREATE ACTIVITY
+===================================================== */
+
+function openCreateActivity(type) {
+
+  closeMainFab();
+
+
+  currentActivityType =
+    type;
+
+
+  const isCourse =
+    type === "course";
+
+
+  document.getElementById(
+    "createActivityTitle"
+  ).textContent =
+    isCourse
+      ? "إضافة كورس"
+      : "إضافة اجتماع";
+
+
+  document.getElementById(
+    "createActivitySubtitle"
+  ).textContent =
+    isCourse
+      ? "اكتب اسم الكورس الجديد"
+      : "اكتب اسم الاجتماع الجديد";
+
+
+  document.getElementById(
+    "activityNameLabel"
+  ).textContent =
+    isCourse
+      ? "اسم الكورس"
+      : "اسم الاجتماع";
+
+
+  document.getElementById(
+    "activityNameInput"
+  ).value = "";
+
+
+  document
+    .getElementById(
+      "createActivityModal"
+    )
+    .classList.add("show");
+
+
+  document
+    .getElementById(
+      "overlay"
+    )
+    .classList.add("show");
+
+
+  setTimeout(function () {
+
+    document
+      .getElementById(
+        "activityNameInput"
+      )
+      .focus();
+
+  }, 300);
+
+}
+
+
+function closeCreateActivity() {
+
+  document
+    .getElementById(
+      "createActivityModal"
+    )
+    .classList.remove("show");
+
+
+  document
+    .getElementById(
+      "overlay"
+    )
+    .classList.remove("show");
+
+}
+
+
+/* =====================================================
+   SUBMIT ACTIVITY
+===================================================== */
+
+function submitCreateActivity() {
+
+  const input =
+    document.getElementById(
+      "activityNameInput"
+    );
+
+
+  const name =
+    input.value.trim();
+
+
+  if (!name) {
+
+    showToast(
+      "error",
+      "اكتب الاسم أولًا"
+    );
+
+    input.focus();
+
+    return;
+
+  }
+
+
+  showLoading(
+    currentActivityType === "course"
+      ? "جاري إنشاء الكورس..."
+      : "جاري إنشاء الاجتماع..."
+  );
+
+
+  const functionName =
+    currentActivityType === "course"
+      ? "createCourse"
+      : "createMeeting";
+
+
+  server(
+    functionName,
+    name
+  )
+
+    .then(function (result) {
+
+      if (
+        result &&
+        result.success === false
+      ) {
+
+        throw new Error(
+          result.message ||
+            "تعذر الإنشاء"
+        );
+
+      }
+
+
+      closeCreateActivity();
+
+
+      showToast(
+        "success",
+        currentActivityType === "course"
+          ? "تم إنشاء الكورس"
+          : "تم إنشاء الاجتماع",
+        name
+      );
+
+
+      loadActivities();
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      showToast(
+        "error",
+        "تعذر إنشاء العنصر",
+        error.message ||
+          "حدث خطأ"
+      );
+
+    })
+
+    .finally(function () {
+
+      hideLoading();
+
+    });
+
+}
+
+
+/* =====================================================
+   LECTURE MODAL
+===================================================== */
+
+function openLectureModal(index) {
+
+  currentActivity =
+    activities[index];
+
+
+  openLectureModalForCurrent();
+
+}
+
+
+function openLectureModalForCurrent() {
+
+  if (!currentActivity) {
+
+    return;
+
+  }
+
+
+  document.getElementById(
+    "lectureNameInput"
+  ).value = "";
+
+
+  document
+    .getElementById(
+      "lectureModal"
+    )
+    .classList.add("show");
+
+
+  document
+    .getElementById(
+      "overlay"
+    )
+    .classList.add("show");
+
+}
+
+
+function closeLectureModal() {
+
+  document
+    .getElementById(
+      "lectureModal"
+    )
+    .classList.remove("show");
+
+
+  document
+    .getElementById(
+      "overlay"
+    )
+    .classList.remove("show");
+
+}
+
+
+/* =====================================================
+   CREATE LECTURE
+===================================================== */
+
+function submitCreateLecture() {
+
+  const name =
+    document
+      .getElementById(
+        "lectureNameInput"
+      )
+      .value
+      .trim();
+
+
+  if (!name) {
+
+    showToast(
+      "error",
+      "اكتب اسم المحاضرة"
+    );
+
+    return;
+
+  }
+
+
+  showLoading(
+    "جاري إضافة المحاضرة..."
+  );
+
+
+  server(
+    "addLecture",
+    currentActivity.name ||
+      currentActivity.title,
+    name
+  )
+
+    .then(function (result) {
+
+      if (
+        result &&
+        result.success === false
+      ) {
+
+        throw new Error(
+          result.message ||
+            "تعذر إضافة المحاضرة"
+        );
+
+      }
+
+
+      closeLectureModal();
+
+
+      showToast(
+        "success",
+        "تمت إضافة المحاضرة",
+        name
+      );
+
+
+      loadActivities();
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      showToast(
+        "error",
+        "تعذر إضافة المحاضرة",
+        error.message ||
+          "حدث خطأ"
+      );
+
+    })
+
+    .finally(function () {
+
+      hideLoading();
+
+    });
+
+}
+
+
+/* =====================================================
+   RENAME LECTURE
+===================================================== */
+
+let lectureBeingRenamed = null;
+
+
+function openRenameLecture(
+  activity,
+  lecture
+) {
+
+  currentActivity =
+    activity;
+
+
+  lectureBeingRenamed =
+    lecture;
+
+
+  document.getElementById(
+    "renameLectureInput"
+  ).value =
+    lecture.name ||
+    lecture.title ||
+    "";
+
+
+  document
+    .getElementById(
+      "renameLectureModal"
+    )
+    .classList.add("show");
+
+
+  document
+    .getElementById(
+      "overlay"
+    )
+    .classList.add("show");
+
+}
+
+
+function closeRenameLecture() {
+
+  document
+    .getElementById(
+      "renameLectureModal"
+    )
+    .classList.remove("show");
+
+
+  document
+    .getElementById(
+      "overlay"
+    )
+    .classList.remove("show");
+
+}
+
+
+function submitRenameLecture() {
+
+  if (!lectureBeingRenamed) {
+
+    return;
+
+  }
+
+
+  const newName =
+    document
+      .getElementById(
+        "renameLectureInput"
+      )
+      .value
+      .trim();
+
+
+  if (!newName) {
+
+    showToast(
+      "error",
+      "اكتب اسم المحاضرة"
+    );
+
+    return;
+
+  }
+
+
+  const oldName =
+    lectureBeingRenamed.name ||
+    lectureBeingRenamed.title;
+
+
+  showLoading(
+    "جاري تعديل الاسم..."
+  );
+
+
+  server(
+    "renameLecture",
+    currentActivity.name ||
+      currentActivity.title,
+    oldName,
+    newName
+  )
+
+    .then(function (result) {
+
+      if (
+        result &&
+        result.success === false
+      ) {
+
+        throw new Error(
+          result.message ||
+            "تعذر تعديل الاسم"
+        );
+
+      }
+
+
+      closeRenameLecture();
+
+
+      showToast(
+        "success",
+        "تم تعديل اسم المحاضرة",
+        newName
+      );
+
+
+      loadActivities();
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      showToast(
+        "error",
+        "تعذر تعديل الاسم",
+        error.message ||
+          "حدث خطأ"
+      );
+
+    })
+
+    .finally(function () {
+
+      hideLoading();
+
+    });
+
+}
+
+
+/* =====================================================
+   ACTIVITY ATTENDANCE
+===================================================== */
+
+function openActivityAttendance() {
+
+  showLoading(
+    "جاري تحميل كشف الحضور..."
+  );
+
+
+  server(
+    "getActivityAttendance",
+    currentActivity.name ||
+      currentActivity.title
+  )
+
+    .then(function (people) {
+
+      renderActivityAttendance(
+        Array.isArray(people)
+          ? people
+          : []
+      );
+
+    })
+
+    .catch(function (error) {
+
+      console.error(error);
+
+      showToast(
+        "error",
+        "حدث خطأ",
+        "تعذر تحميل كشف الحضور"
+      );
+
+    })
+
+    .finally(function () {
+
+      hideLoading();
+
+    });
+
+}
+
+
+function renderActivityAttendance(people) {
+
+  const container =
+    document.getElementById(
+      "mainContent"
+    );
+
+
+  container.innerHTML = `
+
+    <div class="attendance-page">
+
+      <div class="details-header">
+
+        <button
+          class="back-btn"
+          onclick="renderActivityDetails()">
+
+          →
+
+        </button>
+
+
+        <div>
+
+          <h1>
+            كشف الحضور
+          </h1>
+
+          <span>
+            ${escapeHtml(
+              currentActivity.name ||
+              currentActivity.title
+            )}
+          </span>
+
+        </div>
+
+      </div>
+
+
+      <div class="search-box">
+
+        <span>⌕</span>
+
+        <input
+          id="activityAttendanceSearch"
+          type="text"
+          placeholder="ابحث عن اسم..."
+          oninput="filterActivityAttendance()">
+
+      </div>
+
+
+      <div
+        id="activityAttendanceList"
+        class="attendance-list">
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  window.activityAttendance =
+    people;
+
+
+  renderActivityAttendanceList();
+
+}
+
+
+function filterActivityAttendance() {
+
+  renderActivityAttendanceList();
+
+}
+
+
+function renderActivityAttendanceList() {
+
+  const list =
+    document.getElementById(
+      "activityAttendanceList"
+    );
+
+
+  if (!list) return;
+
+
+  const search =
+    (
+      document.getElementById(
+        "activityAttendanceSearch"
+      )?.value || ""
+    )
+      .trim()
+      .toLowerCase();
+
+
+  const people =
+    (
+      window.activityAttendance ||
+      []
+    )
+      .filter(function (person) {
+
+        const name =
+          String(
+            person.name ||
+            person.fullName ||
+            ""
+          );
+
+
+        return (
+          !search ||
+          name
+            .toLowerCase()
+            .includes(search)
+        );
+
+      });
+
+
+  if (!people.length) {
+
+    list.innerHTML = `
+
+      <div class="empty-state compact">
+
+        <div class="empty-icon">
+          👥
+        </div>
+
+        <h3>
+          لا يوجد حضور
+        </h3>
+
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  list.innerHTML =
+    people
+      .map(activityAttendanceCard)
+      .join("");
+
+}
+
+
+function activityAttendanceCard(person) {
+
+  const name =
+    person.name ||
+    person.fullName ||
+    "";
+
+
+  const id =
+    person.id ||
+    person.ID ||
+    "";
+
+
+  const count =
+    person.count ||
+    person.totalAttendance ||
+    person.attendanceCount ||
+    0;
+
+
+  const records =
+    person.records ||
+    person.attendances ||
+    [];
+
+
+  return `
+
+    <article class="person-card">
+
+      <div class="person-card-top">
+
+        <div class="person-avatar">
+          ${getInitials(name)}
+        </div>
+
+
+        <div class="person-info">
+
+          <h3>
+            ${escapeHtml(name)}
+          </h3>
+
+
+          ${
+            id
+              ? `
+                <span class="person-id">
+                  ID: ${escapeHtml(id)}
+                </span>
+              `
+              : `
+                <span class="manual-badge">
+                  إضافة يدوية
+                </span>
+              `
+          }
+
+        </div>
+
+
+        <div class="attendance-count">
+
+          <span>
+            ${count}
+          </span>
+
+          <small>
+            حضور
+          </small>
+
+        </div>
+
+      </div>
+
+
+      <div class="attendance-records">
+
+        ${
+          records
+            .map(function (record) {
+
+              return `
+
+                <div class="attendance-record">
+
+                  <span>
+                    ${escapeHtml(
+                      record.lecture ||
+                      record.lectureName ||
+                      ""
+                    )}
+                  </span>
+
+                  <span>
+                    ${escapeHtml(
+                      record.date ||
+                      record.time ||
+                      ""
+                    )}
+                  </span>
+
+                </div>
+
+              `;
+
+            })
+            .join("")
+        }
+
+      </div>
+
+
+      ${
+        person.certificate
+          ? `
+            <button
+              class="certificate-btn"
+              onclick="openCertificate(${JSON.stringify(person)})">
+
+              👁 الشهادة
+
+            </button>
+          `
+          : ""
+      }
+
+    </article>
+
+  `;
+
+}
+
+
+/* =====================================================
+   CERTIFICATE
+===================================================== */
+
+function openCertificate(person) {
+
+  currentCertificate =
+    person;
+
+
+  document.getElementById(
+    "certificatePersonName"
+  ).textContent =
+    person.name ||
+    person.fullName ||
+    "";
+
+
+  const preview =
+    document.getElementById(
+      "certificatePreview"
+    );
+
+
+  const url =
+    person.certificate ||
+    person.certificateUrl ||
+    "";
+
+
+  if (url) {
+
+    preview.innerHTML = `
+
+      <iframe
+        src="${escapeAttribute(url)}"
+        class="certificate-frame">
+      </iframe>
+
+    `;
+
+  }
+  else {
+
+    preview.innerHTML = `
+
+      <div class="empty-certificate">
+
+        لا توجد شهادة متاحة
+
+      </div>
+
+    `;
+
+  }
+
+
+  document
+    .getElementById(
+      "certificateModal"
+    )
+    .classList.add("show");
+
+
+}
+
+
+function closeCertificate() {
+
+  document
+    .getElementById(
+      "certificateModal"
+    )
+    .classList.remove("show");
+
+}
+
+
+function shareCertificate() {
+
+  const url =
+    currentCertificate?.certificate ||
+    currentCertificate?.certificateUrl;
+
+
+  if (!url) return;
+
+
+  if (
+    navigator.share
+  ) {
+
+    navigator.share({
+
+      title:
+        "الشهادة",
+
+      text:
+        currentCertificate.name ||
+        "",
+
+      url: url
+
+    });
+
+  }
+
+  else {
+
+    navigator.clipboard
+      .writeText(url);
+
+
+    showToast(
+      "success",
+      "تم نسخ رابط الشهادة"
+    );
+
+  }
+
+}
+
+
+function downloadCertificate() {
+
+  const url =
+    currentCertificate?.certificate ||
+    currentCertificate?.certificateUrl;
+
+
+  if (!url) {
+
+    return;
+
+  }
+
+
+  const a =
+    document.createElement("a");
+
+
+  a.href = url;
+
+  a.target = "_blank";
+
+  a.download = "certificate";
+
+
+  document.body.appendChild(a);
+
+  a.click();
+
+  a.remove();
+
+}
+
+
+/* =====================================================
+   MAIN FAB
+===================================================== */
+
+function toggleMainFab() {
+
+  mainFabOpened =
+    !mainFabOpened;
+
+
+  const menu =
+    document.getElementById(
+      "mainFabMenu"
+    );
+
+
+  const icon =
+    document.getElementById(
+      "mainFabIcon"
+    );
+
+
+  menu.classList.toggle(
+    "show",
+    mainFabOpened
+  );
+
+
+  icon.textContent =
+    mainFabOpened
+      ? "×"
+      : "+";
+
+}
+
+
+function closeMainFab() {
+
+  mainFabOpened =
+    false;
+
+
+  document
+    .getElementById(
+      "mainFabMenu"
+    )
+    .classList.remove("show");
+
+
+  document.getElementById(
+    "mainFabIcon"
+  ).textContent = "+";
+
+}
+
+
+/* =====================================================
+   HOME
+===================================================== */
+
+function goHome() {
+
+  closeMainFab();
+
+  currentActivity =
+    null;
+
+  currentLecture =
+    null;
+
+  loadActivities();
+
+}
+
+
+/* =====================================================
+   ALL ATTENDANCE
+===================================================== */
+
+function showAllAttendance() {
+
+  if (activities.length === 0) {
+
+    showToast(
+      "info",
+      "لا يوجد حضور حتى الآن"
+    );
+
+    return;
+
+  }
+
+
+  /*
+    نعرض النشاطات أولًا.
+    بعد ذلك يمكن فتح كشف أي كورس
+    أو اجتماع.
+  */
+
+  renderHome();
+
+}
+
+
+/* =====================================================
+   MODALS
+===================================================== */
+
+function closeAllModals() {
+
+  closeCreateActivity();
+
+  closeLectureModal();
+
+  closeRenameLecture();
+
+  closeManualAttendance();
+
+  closeManualConfirm();
+
+  closeMainFab();
+
+}
+
+
+/* =====================================================
+   UTILS
+===================================================== */
+
+function escapeHtml(value) {
+
+  return String(
+    value ?? ""
+  )
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+}
+
+
+function escapeAttribute(value) {
+
+  return escapeHtml(value);
+
+}
+
+
+function getInitials(name) {
+
+  const text =
+    String(name || "")
+      .trim();
+
+
+  if (!text) {
+
+    return "؟";
+
+  }
+
+
+  const words =
+    text.split(/\s+/);
+
+
+  if (words.length === 1) {
+
+    return words[0].substring(
+      0,
+      2
+    );
+
+  }
+
+
+  return (
+    words[0][0] +
+    words[1][0]
+  );
+
+}
+
+
+/* =====================================================
+   KEYBOARD
+===================================================== */
+
+document.addEventListener(
+  "keydown",
+  function (event) {
+
+    if (
+      event.key === "Escape"
+    ) {
+
+      closeAllModals();
+
+    }
+
+  }
+);
+
+</script>
+
+</body>
+</html>
