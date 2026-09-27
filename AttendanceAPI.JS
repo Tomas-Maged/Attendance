@@ -1,5 +1,3 @@
-
-
 /*******************************************************
  * 1) CONFIG
  *******************************************************/
@@ -302,6 +300,19 @@ function createActivitySheet_(sheet, activityName) {
 
   sheet
     .getRange("B:B")
+    .setNumberFormat("@");
+
+  /*
+   * مهم جدًا: كل أعمدة المحاضرات (من العمود E فصاعدًا) لازم تكون
+   * "نص" (Plain Text) من البداية، وليس تاريخ. لو سبتها بدون تنسيق،
+   * Google Sheets هيفسّر أي قيمة تاريخ/وقت نكتبها فيها كـ Date حقيقي،
+   * وساعتها لما نقرأها تانى من Apps Script هترجع كـ JS Date Object
+   * وتظهر فى الواجهة بشكل خام غريب زي:
+   * "Wed Sep 23 2026 00:40:00 GMT+0300 (...)"
+   * بدل الشكل المُنسّق اللي احنا بنحطه فعليًا.
+   */
+  sheet
+    .getRange("E:ZZ")
     .setNumberFormat("@");
 
   return sheet;
@@ -1148,6 +1159,21 @@ function addLecture(
     );
 
 
+    /*
+     * نفس سبب التنسيق فى createActivitySheet_: نضمن إن عمود
+     * المحاضرة الجديد كله (مش بس رأسه) نصّي من البداية، حتى لو
+     * الشيت كبر لآلاف الصفوف لاحقًا.
+     */
+    sheet
+      .getRange(
+        1,
+        newColumn,
+        Math.max(sheet.getMaxRows(), 1000),
+        1
+      )
+      .setNumberFormat("@");
+
+
     return {
 
       success: true,
@@ -1451,9 +1477,19 @@ function findRowById_(
 
 
 /**
- * Timestamp
+ * تنسيق أي تاريخ/وقت بنفس صيغة الحضور المستخدمة فى كل الشيت
+ * (مفصولة عن getAttendanceTimestamp_ حتى تقدر المزامنة الأوفلاين
+ * تنسّق وقت التسجيل الحقيقي وقت الحدث، مش وقت المزامنة)
+ *
+ * الصيغة: hh:mm:ss ص/م  yyyy/MM/dd
+ * مثال:   07:32:15 ص  2026/09/23
+ *
+ * ملاحظة: القيمة دايمًا بترجع كنص (String) وليس تاريخ، والعمود نفسه
+ * مضبوط كـ "نص" (setNumberFormat("@")) فى createActivitySheet_ /
+ * addLecture، عشان Google Sheets ميحولهاش لـ Date تلقائيًا، وده اللي
+ * كان بيسبب ظهور المنطقة الزمنية (GMT+0300) وشكل التاريخ الغريب.
  */
-function getAttendanceTimestamp_() {
+function formatAttendanceTimestamp_(date) {
 
   const timezone =
     getAttendanceSpreadsheet_()
@@ -1461,12 +1497,45 @@ function getAttendanceTimestamp_() {
 
 
   return Utilities.formatDate(
-    new Date(),
+    date,
     timezone,
-    "dd/MM/yyyy hh:mm a"
+    "hh:mm:ss a yyyy/MM/dd"
   )
   .replace("AM", "ص")
   .replace("PM", "م");
+}
+
+
+/**
+ * Timestamp — وقت الآن
+ */
+function getAttendanceTimestamp_() {
+
+  return formatAttendanceTimestamp_(
+    new Date()
+  );
+}
+
+
+/**
+ * تطبيع أي قيمة قادمة من خلية محاضرة قبل إرجاعها للواجهة.
+ *
+ * لأسباب تاريخية (بيانات قديمة قبل تفعيل setNumberFormat("@"))،
+ * بعض الخلايا ممكن تكون لسه متخزنة كـ Date حقيقي جوه Sheets بدل
+ * نص. الدالة دي بتتأكد إن أي قيمة من النوع ده بترجع كنص منسّق
+ * بنفس شكل باقي التوقيتات، بدل ما ترجع Date Object خام للواجهة.
+ */
+function normalizeTimestampValue_(value) {
+
+  if (
+    Object.prototype.toString.call(value) ===
+    "[object Date]"
+  ) {
+
+    return formatAttendanceTimestamp_(value);
+  }
+
+  return value;
 }
 
 
@@ -1631,7 +1700,7 @@ function recordQrAttendance(
             lectureColumn,
 
           timestamp:
-            already
+            normalizeTimestampValue_(already)
 
         };
       }
@@ -1940,7 +2009,7 @@ function searchManualAttendancePeople(
       ) {
 
         alreadyAttended = true;
-        timestamp = value;
+        timestamp = normalizeTimestampValue_(value);
       }
     }
 
@@ -2130,7 +2199,10 @@ function recordManualAttendance(
                   3
                 )
                 .getValue()
-            ) || 0
+            ) || 0,
+
+          timestamp:
+            normalizeTimestampValue_(oldValue)
         };
       }
 
@@ -2398,6 +2470,11 @@ function findRowsByName_(
  * - أصحاب ID
  * - بدون ID
  * - أصحاب شهادة استثنائية حتى لو 0 حضور
+ *
+ * ملاحظة: يتم دائمًا إرجاع "cols" — خريطة { رقم عمود المحاضرة: التاريخ والوقت }
+ * لكل الشخص، بغض النظر عن lectureColumn المُمرَّر، حتى تستطيع الواجهة
+ * عرض تاريخ ووقت حضور كل شخص فى كل محاضرة (فى كشف الحضور الكامل)
+ * أو فى محاضرة واحدة فقط (فى شاشة المحاضرة).
  */
 function getAttendanceList(
   sheetId,
@@ -2469,6 +2546,25 @@ function getAttendanceList(
     let timestamp = "";
 
 
+    // خريطة تاريخ/وقت الحضور لكل محاضرة (كل الأعمدة من العمود 5 فصاعدًا)
+    const cols = {};
+
+    for (let c = 5; c <= lastColumn; c++) {
+
+      const cellValue =
+        row[c - 1];
+
+      if (
+        cellValue !== "" &&
+        cellValue !== null
+      ) {
+
+        cols[c] =
+          normalizeTimestampValue_(cellValue);
+      }
+    }
+
+
     if (
       lectureColumn &&
       Number(lectureColumn) >= 5 &&
@@ -2489,7 +2585,7 @@ function getAttendanceList(
         attendedThisLecture = true;
 
         timestamp =
-          String(value);
+          normalizeTimestampValue_(value);
       }
     }
 
@@ -2521,7 +2617,10 @@ function getAttendanceList(
         attendedThisLecture,
 
       timestamp:
-        timestamp
+        timestamp,
+
+      cols:
+        cols
     });
 
   });
@@ -2720,6 +2819,94 @@ function isDriveUrl_(value) {
     text.indexOf("http://") === 0 ||
     text.indexOf("https://") === 0
   );
+}
+
+
+/*******************************************************
+ * 21.1) CERTIFICATE FILE ID EXTRACTION + PDF FETCH
+ *******************************************************/
+
+/**
+ * استخراج معرّف ملف Drive من رابط الشهادة
+ *
+ * يدعم الأشكال الشائعة:
+ * https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+ * https://drive.google.com/open?id=FILE_ID
+ * https://docs.google.com/.../d/FILE_ID/...
+ */
+function extractDriveFileId_(url) {
+
+  url = String(url || "").trim();
+
+  if (!url) {
+    return null;
+  }
+
+  const patterns = [
+    /\/d\/([a-zA-Z0-9_-]{10,})/,
+    /[?&]id=([a-zA-Z0-9_-]{10,})/
+  ];
+
+  for (let i = 0; i < patterns.length; i++) {
+
+    const match = url.match(patterns[i]);
+
+    if (match && match[1]) {
+      return match[1];
+    }
+  }
+
+  return null;
+}
+
+
+/**
+ * جلب ملف الشهادة (PDF) كـ base64 حتى تستطيع الواجهة:
+ * - عرضه داخل الموقع مباشرة (بدون التوجيه لرابط Drive)
+ * - تنزيله كملف PDF فعلي
+ * - مشاركته كملف PDF فعلي (وليس رابط)
+ *
+ * ملاحظة: اسم الملف اللي بيرجع هنا (fileName) هو مجرد fallback؛
+ * الواجهة (Index.html) بتفرض اسم الشخص نفسه دايمًا كاسم للملف
+ * وقت التنزيل/المشاركة، بدل الاعتماد على اسم الملف الداخلي فى Drive.
+ */
+function getCertificatePdf(url) {
+
+  const fileId =
+    extractDriveFileId_(url);
+
+  if (!fileId) {
+
+    throw new Error(
+      "رابط الشهادة غير صالح."
+    );
+  }
+
+  const file =
+    DriveApp.getFileById(fileId);
+
+  const blob =
+    file.getBlob();
+
+  const base64 =
+    Utilities.base64Encode(
+      blob.getBytes()
+    );
+
+  return {
+
+    success: true,
+
+    base64: base64,
+
+    mimeType:
+      blob.getContentType() ||
+      "application/pdf",
+
+    fileName:
+      file.getName()
+
+  };
 }
 
 
@@ -4719,6 +4906,473 @@ function initialSetup() {
 
   };
 }
+/*******************************************************
+ * 46) OFFLINE SUPPORT — لقطة للتخزين المحلي + مزامنة دفعة
+ *
+ * الفكرة:
+ * - التطبيق (لما يكون أونلاين) بيسحب "لقطة" (snapshot) من نشاط معيّن
+ *   ويخزّنها محليًا على الجهاز (روستر الأسماء + الـIDs + كل الحضور
+ *   السابق + الشهادات).
+ * - وهو أوفلاين: السكان والإضافة اليدوية ومنع التكرار كلها بتشتغل
+ *   على النسخة المحلية دي فقط، وكل تسجيل حضور بيتخزن محليًا فى
+ *   طابور "لسه متزامنش" (pending queue) بمعرف فريد (localId) من
+ *   عند التطبيق نفسه.
+ * - لما يرجع النت: التطبيق بيبعت كل الطابور دفعة واحدة لـ
+ *   batchSyncAttendance، ويستقبل رد لكل عنصر فيه (نجح / مكرر /
+ *   يحتاج اختيار يدوي / خطأ) عشان يحدّث حالته محليًا.
+ *******************************************************/
+
+/**
+ * لقطة نشاط واحد صالحة للتخزين المحلي (أوفلاين).
+ * نداء واحد بدل نداءين (getActivity + getAttendanceList) لتقليل
+ * عدد رحلات الشبكة وقت المزامنة الأولى.
+ */
+function getActivitySnapshot(sheetId) {
+
+  const activity =
+    getActivity(sheetId);
+
+  const people =
+    getAttendanceList(
+      sheetId,
+      null
+    );
+
+  return {
+
+    success: true,
+
+    activity: activity,
+
+    people: people,
+
+    // وقت أخذ اللقطة (وقت الخادم) — يفيد التطبيق فى معرفة
+    // مدى قِدَم النسخة المخزّنة محليًا
+    snapshotAt:
+      new Date().toISOString()
+
+  };
+}
+
+
+/**
+ * مزامنة دفعة من تسجيلات حضور اتعملت أوفلاين (سكان أو يدوي)
+ * لمحاضرة واحدة، دفعة واحدة، بترتيب حدوثها الفعلي.
+ *
+ * lectureColumn: رقم عمود المحاضرة (كل عناصر الدفعة لنفس المحاضرة)
+ *
+ * records: مصفوفة عناصر:
+ * {
+ *   localId:         معرف فريد من عند التطبيق (مثلاً uuid) — إلزامي
+ *   type:            "qr" أو "manual"
+ *   qrData:          نص QR كامل — مطلوب لو type = "qr"
+ *   personName:      اسم الشخص — مطلوب لو type = "manual" وrowNumber مش معروف
+ *   rowNumber:       رقم الصف لو الشخص معروف بالفعل من اللقطة المحلية (اختياري)
+ *   personId:        ID اختياري لو الشخص جديد
+ *   clientTimestamp: وقت التسجيل الفعلي أوفلاين (ISO string) — لو فاضي بيتاخد وقت الآن
+ * }
+ *
+ * الرد: مصفوفة نتائج بنفس عدد وترتيب records، كل عنصر:
+ * {
+ *   localId,
+ *   status: "success" | "duplicate" | "ambiguous" | "error",
+ *   name, rowNumber, count, timestamp,   // عند success/duplicate
+ *   matches,                              // عند ambiguous — يحتاج المستخدم يختار يدويًا
+ *   message                               // عند duplicate/ambiguous/error
+ * }
+ */
+function batchSyncAttendance(
+  sheetId,
+  lectureColumn,
+  records
+) {
+
+  const lock =
+    LockService.getScriptLock();
+
+  lock.waitLock(30000);
+
+
+  try {
+
+    const sheet =
+      getActivitySheetById_(
+        sheetId
+      );
+
+
+    lectureColumn =
+      Number(lectureColumn);
+
+
+    if (lectureColumn < 5) {
+
+      throw new Error(
+        "المحاضرة غير صحيحة."
+      );
+    }
+
+
+    if (!records || !records.length) {
+      return [];
+    }
+
+
+    const results = [];
+
+
+    records.forEach(function (record) {
+
+      const localId =
+        record.localId;
+
+      try {
+
+        const clientDate =
+          record.clientTimestamp
+            ? new Date(record.clientTimestamp)
+            : new Date();
+
+        const timestamp =
+          formatAttendanceTimestamp_(
+            clientDate
+          );
+
+
+        /*******************************
+         * تسجيل عن طريق QR
+         *******************************/
+
+        if (record.type === "qr") {
+
+          const person =
+            parseQrData_(
+              record.qrData
+            );
+
+          let rowNumber =
+            findRowById_(
+              sheet,
+              person.id
+            );
+
+
+          if (rowNumber) {
+
+            const currentName =
+              cleanName_(
+                sheet.getRange(rowNumber, 2).getValue()
+              );
+
+            const actualName =
+              currentName || person.name;
+
+            const cell =
+              sheet.getRange(rowNumber, lectureColumn);
+
+            const already =
+              cell.getValue();
+
+
+            if (already !== "" && already !== null) {
+
+              results.push({
+                localId: localId,
+                status: "duplicate",
+                name: actualName,
+                rowNumber: rowNumber,
+                count:
+                  Number(sheet.getRange(rowNumber, 3).getValue()) || 0,
+                timestamp: normalizeTimestampValue_(already),
+                message:
+                  "تم إضافة " + actualName + " بالفعل"
+              });
+
+              return;
+            }
+
+
+            if (!currentName) {
+              sheet.getRange(rowNumber, 2).setValue(person.name);
+            }
+
+
+            cell.setValue(timestamp);
+
+            const countCell =
+              sheet.getRange(rowNumber, 3);
+
+            const newCount =
+              (Number(countCell.getValue()) || 0) + 1;
+
+            countCell.setValue(newCount);
+
+
+            results.push({
+              localId: localId,
+              status: "success",
+              name: actualName,
+              rowNumber: rowNumber,
+              count: newCount,
+              timestamp: timestamp
+            });
+
+            return;
+          }
+
+
+          // شخص جديد بالكامل (ID لم يُسجَّل من قبل)
+          rowNumber =
+            createPersonRow_(
+              sheet,
+              person.id,
+              person.name
+            );
+
+          sheet.getRange(rowNumber, lectureColumn).setValue(timestamp);
+          sheet.getRange(rowNumber, 3).setValue(1);
+
+
+          results.push({
+            localId: localId,
+            status: "success",
+            name: person.name,
+            rowNumber: rowNumber,
+            count: 1,
+            timestamp: timestamp
+          });
+
+          return;
+        }
+
+
+        /*******************************
+         * تسجيل يدوي
+         *******************************/
+
+        if (record.type === "manual") {
+
+          let rowNumber =
+            record.rowNumber
+              ? Number(record.rowNumber)
+              : null;
+
+          const personName =
+            cleanName_(record.personName);
+
+
+          if (!personName && !rowNumber) {
+
+            throw new Error(
+              "بيانات التسجيل اليدوي غير مكتملة."
+            );
+          }
+
+
+          // لو rowNumber مش معروف، حاول تلاقيه بالاسم
+          if (!rowNumber) {
+
+            const matches =
+              findRowsByName_(sheet, personName);
+
+
+            if (matches.length === 1) {
+
+              rowNumber = matches[0].rowNumber;
+
+            } else if (matches.length > 1) {
+
+              // أكثر من شخص بنفس الاسم — لازم اختيار يدوي
+              // بعد رجوع النت، مش تخمين من السيرفر
+              results.push({
+                localId: localId,
+                status: "ambiguous",
+                matches: matches,
+                message:
+                  "يوجد أكثر من شخص بهذا الاسم — يحتاج اختيار يدوي"
+              });
+
+              return;
+            }
+          }
+
+
+          if (rowNumber) {
+
+            const storedName =
+              cleanName_(sheet.getRange(rowNumber, 2).getValue()) ||
+              personName;
+
+            const cell =
+              sheet.getRange(rowNumber, lectureColumn);
+
+            const already =
+              cell.getValue();
+
+
+            if (already !== "" && already !== null) {
+
+              results.push({
+                localId: localId,
+                status: "duplicate",
+                name: storedName,
+                rowNumber: rowNumber,
+                count:
+                  Number(sheet.getRange(rowNumber, 3).getValue()) || 0,
+                timestamp: normalizeTimestampValue_(already),
+                message:
+                  "تم إضافة " + storedName + " بالفعل"
+              });
+
+              return;
+            }
+
+
+            cell.setValue(timestamp);
+
+            const countCell =
+              sheet.getRange(rowNumber, 3);
+
+            const newCount =
+              (Number(countCell.getValue()) || 0) + 1;
+
+            countCell.setValue(newCount);
+
+
+            results.push({
+              localId: localId,
+              status: "success",
+              name: storedName,
+              rowNumber: rowNumber,
+              count: newCount,
+              timestamp: timestamp
+            });
+
+            return;
+          }
+
+
+          // شخص جديد بدون ID
+          const newRow =
+            createPersonRow_(
+              sheet,
+              record.personId || "",
+              personName
+            );
+
+          sheet.getRange(newRow, lectureColumn).setValue(timestamp);
+          sheet.getRange(newRow, 3).setValue(1);
+
+
+          results.push({
+            localId: localId,
+            status: "success",
+            name: personName,
+            rowNumber: newRow,
+            count: 1,
+            timestamp: timestamp
+          });
+
+          return;
+        }
+
+
+        throw new Error(
+          "نوع تسجيل غير معروف: " + record.type
+        );
+
+
+      } catch (err) {
+
+        results.push({
+          localId: localId,
+          status: "error",
+          message: err.message
+        });
+      }
+
+    });
+
+
+    return results;
+
+
+  } finally {
+
+    lock.releaseLock();
+
+  }
+}
+
+
+/*******************************************************
+ * 47) FIX EXISTING TIMESTAMP FORMATTING (تشغيل مرة واحدة)
+ *
+ * شغّلها مرة واحدة يدويًا من محرر Apps Script بعد رفع الكود لو
+ * عندك بيانات حضور قديمة اتسجلت قبل التعديل ولسه شكلها غريب
+ * (زي Wed Sep 23 2026 00:40:00 GMT+0300). الدالة دي بتظبط تنسيق
+ * كل أعمدة المحاضرات فى كل الشيتات كـ "نص"، وتحوّل أي خلية لسه
+ * متخزنة كـ Date حقيقي لنص منسّق بنفس شكل باقي التوقيتات.
+ *******************************************************/
+function fixExistingTimestampFormatting_() {
+
+  const ss = getAttendanceSpreadsheet_();
+
+  let fixedCells = 0;
+
+  ss.getSheets().forEach(function (sheet) {
+
+    // تظبيط التنسيق كـ نص لكل المستقبل
+    sheet.getRange("E:ZZ").setNumberFormat("@");
+
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+
+    if (lastColumn < 5 || lastRow < 2) {
+      return;
+    }
+
+    const range =
+      sheet.getRange(2, 5, lastRow - 1, lastColumn - 4);
+
+    const values =
+      range.getValues();
+
+    let changed = false;
+
+    for (let r = 0; r < values.length; r++) {
+      for (let c = 0; c < values[r].length; c++) {
+
+        if (
+          Object.prototype.toString.call(values[r][c]) ===
+          "[object Date]"
+        ) {
+
+          values[r][c] =
+            formatAttendanceTimestamp_(values[r][c]);
+
+          changed = true;
+          fixedCells++;
+        }
+      }
+    }
+
+    if (changed) {
+      range.setValues(values);
+    }
+
+  });
+
+  return {
+
+    success: true,
+
+    fixedCells: fixedCells
+
+  };
+}
+
+
 function testBackendSimple() {
 
   try {
