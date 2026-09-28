@@ -1,0 +1,25 @@
+{
+  "name": "attendance-app",
+  "version": "1.0.0",
+  "description": "نظام الحضور بالـ QR — Capacitor Android wrapper",
+  "private": true,
+  "scripts": {
+    "build": "echo \"No build step — static HTML\" && exit 0",
+    "sync": "npx cap sync android",
+    "open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor-community/barcode-scanner": "^3.0.3",
+    "@capacitor/android": "^4.8.2",
+    "@capacitor/core": "^4.8.2",
+    "@capacitor/filesystem": "^4.1.0",
+    "@capacitor/share": "^4.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^4.8.2"
+  },
+  "allowScripts": {
+    "sharp@0.32.6": true
+  }
+}
