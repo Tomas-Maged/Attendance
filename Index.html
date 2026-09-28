@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>نظام الحضور </title>
+<meta name="theme-color" id="metaThemeColor" content="#0F1715">
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('theme');
+      var theme = saved || 'dark';
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+<?!= include('Stylesheet'); ?>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== الشاشة الرئيسية ===================== -->
+  <section class="view is-active" id="view-home">
+    <div class="topbar">
+      <span class="topbar__title">الشاشة الرئسية</span>
+      <div class="view-toggle">
+        <button type="button" data-view-mode="grid" aria-label="عرض شبكي">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+        </button>
+        <button type="button" data-view-mode="list" aria-label="عرض قائمة" class="is-active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        </button>
+      </div>
+      <button class="theme-toggle" aria-label="تبديل الوضع الليلي">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </div>
+
+    <div class="search-row">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="homeSearch" placeholder="ابحث عن كورس أو اجتماع">
+      </div>
+    </div>
+    <div class="filter-chips" id="homeFilters">
+      <button class="chip is-active" data-filter="all">الكل</button>
+      <button class="chip" data-filter="course">الكورسات</button>
+      <button class="chip" data-filter="meeting">الاجتماعات</button>
+    </div>
+
+    <div id="homeEmpty" class="empty-state" style="display:none;">
+      <div class="empty-state__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
+      </div>
+      <div class="empty-state__title">لا يوجد تسجيل حضور حتى الآن</div>
+      <div class="empty-state__hint">اضغط على زر الإضافة بالأسفل لبدء أول كورس أو اجتماع.</div>
+    </div>
+
+    <div class="list" id="homeList"></div>
+  </section>
+
+  <!-- ===================== شاشة النشاط (كورس / اجتماع) ===================== -->
+  <section class="view" id="view-activity">
+    <div class="topbar">
+      <button class="topbar__back" data-back="view-home">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <div style="flex:1; min-width:0;">
+        <div class="topbar__title" id="activityTitle">—</div>
+      </div>
+      <div class="view-toggle">
+        <button type="button" data-view-mode="grid" aria-label="عرض شبكي">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+        </button>
+        <button type="button" data-view-mode="list" aria-label="عرض قائمة" class="is-active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        </button>
+      </div>
+      <button class="theme-toggle" aria-label="تبديل الوضع الليلي">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="icon-btn" id="activityAttendanceBtn" title="عرض كشف الحضور">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17V7m6 10V11M4 21h16"/></svg>
+      </button>
+    </div>
+
+    <div class="list" id="activityLectureList" style="padding-top:14px;"></div>
+
+    <div id="activityEmpty" class="empty-state" style="display:none;">
+      <div class="empty-state__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </div>
+      <div class="empty-state__title">لا توجد محاضرات بعد</div>
+      <div class="empty-state__hint">اضغط على "إضافة محاضرة" لبدء تسجيل الحضور.</div>
+    </div>
+  </section>
+
+  <!-- ===================== شاشة محاضرة واحدة ===================== -->
+  <section class="view" id="view-lecture">
+    <div class="topbar">
+      <button class="topbar__back" data-back="view-activity">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <div style="flex:1; min-width:0;">
+        <div class="topbar__title" id="lectureTitle">—</div>
+      </div>
+      <div class="view-toggle">
+        <button type="button" data-view-mode="grid" aria-label="عرض شبكي">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+        </button>
+        <button type="button" data-view-mode="list" aria-label="عرض قائمة" class="is-active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        </button>
+      </div>
+      <button class="theme-toggle" aria-label="تبديل الوضع الليلي">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </div>
+
+    <div class="search-row">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="lectureSearch" placeholder="ابحث بالاسم">
+      </div>
+    </div>
+    <div class="filter-chips">
+      <button class="chip is-active" data-lfilter="all">الكل</button>
+      <button class="chip" data-lfilter="withId">لديهم ID</button>
+      <button class="chip" data-lfilter="withoutId">بدون ID</button>
+    </div>
+
+    <div id="lectureEmpty" class="empty-state" style="display:none;">
+      <div class="empty-state__icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>
+      </div>
+      <div class="empty-state__title">لا يوجد حضور حتى الآن</div>
+      <div class="empty-state__hint">ابدأ بتسجيل الحضور بالضغط على زر الإضافة.</div>
+    </div>
+
+    <div class="list" id="lectureList"></div>
+  </section>
+
+  <!-- ===================== كشف الحضور الكامل ===================== -->
+  <section class="view" id="view-attendance">
+    <div class="topbar">
+      <button class="topbar__back" data-back="view-activity">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <div style="flex:1; min-width:0;">
+        <div class="topbar__title">كشف الحضور</div>
+        <span class="topbar__sub" id="attendanceSub"></span>
+      </div>
+      <div class="view-toggle">
+        <button type="button" data-view-mode="grid" aria-label="عرض شبكي">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+        </button>
+        <button type="button" data-view-mode="list" aria-label="عرض قائمة" class="is-active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        </button>
+      </div>
+      <button class="theme-toggle" aria-label="تبديل الوضع الليلي">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </div>
+    <div class="search-row">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input type="text" id="attendanceSearch" placeholder="ابحث بالاسم">
+      </div>
+    </div>
+    <div class="filter-chips">
+      <button class="chip is-active" data-afilter="all">الكل</button>
+      <button class="chip" data-afilter="withId">لديهم ID</button>
+      <button class="chip" data-afilter="withoutId">بدون ID</button>
+    </div>
+    <div class="list" id="attendanceFullList"></div>
+  </section>
+
+  <!-- ===================== شاشة السكان ===================== -->
+  <section class="view scan-view" id="view-scan">
+    <div class="topbar" style="width:100%;">
+      <button class="topbar__back" data-back="view-lecture">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <div style="flex:1; min-width:0;">
+        <div class="topbar__title" id="scanLectureTitle">—</div>
+      </div>
+    </div>
+
+    <div class="scan-frame" id="scanFrame">
+      <video id="scanVideo" playsinline muted autoplay></video>
+      <div class="scan-frame__corner tl"></div>
+      <div class="scan-frame__corner tr"></div>
+      <div class="scan-frame__corner bl"></div>
+      <div class="scan-frame__corner br"></div>
+    </div>
+    <div class="scan-hint" id="scanHint">وجّه الكاميرا نحو رمز QR لتسجيل الحضور تلقائيًا</div>
+
+    <button class="scan-manual-btn" id="openManualAddBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+      إضافة يدوية
+    </button>
+  </section>
+
+  <!-- ===================== FAB ===================== -->
+  <button class="fab" id="fabBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+
+  <!-- ===================== بانر حالة الأوفلاين ===================== -->
+  <div class="offline-banner" id="offlineBanner">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.58 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+    <span id="offlineBannerText">غير متصل بالإنترنت — سيتم حفظ الحضور محليًا والمزامنة تلقائيًا عند عودة الاتصال</span>
+    <span class="offline-banner__count" id="offlineBannerCount" style="display:none;">0</span>
+  </div>
+
+  <!-- ===================== توست ===================== -->
+  <div class="toast-stack" id="toastStack"></div>
+
+  <!-- ===================== شيت: قائمة FAB الرئيسية ===================== -->
+  <div class="overlay" id="sheetHomeFab">
+    <div class="sheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__title">إضافة جديد</div>
+      <button class="option-row" data-create="course">
+        <span class="option-row__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/></svg></span>
+        <span class="option-row__text">كورس<span class="option-row__sub">مجموعة محاضرات وشهادات</span></span>
+      </button>
+      <button class="option-row" data-create="meeting">
+        <span class="option-row__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 20a5 5 0 0 0-10 0"/><circle cx="12" cy="8" r="4"/></svg></span>
+        <span class="option-row__text">اجتماع<span class="option-row__sub">تسجيل حضور بدون شهادات</span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== شيت: اسم كورس/اجتماع جديد ===================== -->
+  <div class="overlay" id="sheetCreateActivity">
+    <div class="sheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__title" id="createActivityTitle">اسم الكورس</div>
+      <input class="field" id="createActivityInput" placeholder="اكتب الاسم هنا">
+      <div class="sheet__actions">
+        <button class="btn btn-ghost" data-close-sheet>إلغاء</button>
+        <button class="btn btn-primary" id="createActivityConfirm">إنشاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== شيت: إضافة محاضرة ===================== -->
+  <div class="overlay" id="sheetAddLecture">
+    <div class="sheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__title">اسم المحاضرة الجديدة</div>
+      <input class="field" id="addLectureInput" placeholder="مثال: المحاضرة الثالثة">
+      <div class="sheet__actions">
+        <button class="btn btn-ghost" data-close-sheet>إلغاء</button>
+        <button class="btn btn-primary" id="addLectureConfirm">إضافة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== شيت: قائمة FAB داخل المحاضرة (Scan / يدوي) ===================== -->
+  <div class="overlay" id="sheetLectureFab">
+    <div class="sheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__title">تسجيل حضور</div>
+      <button class="option-row" id="goScanBtn">
+        <span class="option-row__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM19 19h2M14 21h2"/></svg></span>
+        <span class="option-row__text">Scan QR<span class="option-row__sub">تسجيل تلقائي بالكاميرا</span></span>
+      </button>
+      <button class="option-row" id="goManualBtn">
+        <span class="option-row__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+        <span class="option-row__text">إضافة يدوية<span class="option-row__sub">بدون ID أو QR</span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================== شيت: الإضافة اليدوية (بحث + إضافة) ===================== -->
+  <div class="overlay" id="sheetManualAdd">
+    <div class="sheet">
+      <div class="sheet__handle"></div>
+      <div class="sheet__title">إضافة يدوية</div>
+      <div class="sheet__hint">ابحث عن اسم موجود، أو أضف شخصًا جديدًا</div>
+      <input class="field" id="manualAddInput" placeholder="اكتب الاسم هنا">
+      <div class="search-results" id="manualSearchResults"></div>
+      <div class="sheet__actions">
+        <button class="btn btn-ghost" data-close-sheet>إلغاء</button>
+        <button class="btn btn-primary" id="manualAddConfirm">إضافة</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== شيت: تأكيد تسجيل حضور شخص من نتائج البحث ===================== -->
+  <div class="overlay" id="sheetConfirmAttendance">
+    <div class="sheet">
+      <div class="sheet__handle"></div>
+      <div class="confirm-card">
+        <div class="confirm-card__name" id="confirmPersonName">—</div>
+        <div class="confirm-card__hint">تسجيل حضور في: <b id="confirmLectureName">—</b></div>
+        <div class="sheet__actions" style="margin-top:6px;">
+          <button class="btn btn-ghost" data-close-sheet>إلغاء</button>
+          <button class="btn btn-primary" id="confirmAttendanceBtn">إضافة</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== عارض الشهادة (PDF حقيقي داخل الموقع) ===================== -->
+  <div class="overlay pdf-overlay" id="sheetCertificateViewer">
+    <div class="pdf-viewer">
+      <div class="pdf-viewer__bar">
+        <button class="icon-btn" id="pdfCloseBtn" aria-label="إغلاق">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <div class="pdf-viewer__title" id="pdfViewerTitle">شهادة</div>
+        <div class="pdf-viewer__actions">
+          <button class="icon-btn" id="pdfShareBtn" aria-label="مشاركة" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 10.5 6.8-3.8M8.6 13.5l6.8 3.8"/></svg>
+          </button>
+          <button class="icon-btn" id="pdfDownloadBtn" aria-label="تنزيل" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 21h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="pdf-viewer__body" id="pdfViewerBody">
+        <div class="pdf-viewer__loading">جاري تحميل الشهادة...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+/* =========================================================
+   طبقة الاتصال بالـ Backend (Google Apps Script)
+   عند التشغيل خارج Apps Script (اختبار محلي) تُستخدم بيانات
+   وهمية تلقائيًا بدل google.script.run
+   ========================================================= */
+const HAS_GAS = (typeof google !== 'undefined' && google.script && google.script.run);
+
+/* عيّنة PDF صغيرة تُستخدم فقط أثناء الاختبار المحلي خارج Apps Script */
+const SAMPLE_PDF_BASE64 = "JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAzMDAgMTUwXSAvUmVzb3VyY2VzIDw8IC9Gb250IDw8IC9GMSA0IDAgUiA+PiA+PiAvQ29udGVudHMgNSAwIFIgPj4KZW5kb2JqCjQgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iago1IDAgb2JqCjw8IC9MZW5ndGggNzAgPj4Kc3RyZWFtCkJUIC9GMSAxOCBUZiA0MCA4MCBUZCAoU2FtcGxlIENlcnRpZmljYXRlIC0gRGVtbyBPbmx5KSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKdHJhaWxlcgo8PCAvU2l6ZSA2IC9Sb290IDEgMCBSID4+CnN0YXJ0eHJlZgowCiUlRU9G";
+
+const MockDB = (function () {
+  let seq = 1000;
+  const data = [
+    {
+      type: 'course', sheetId: 1, courseId: 1, name: 'خادم وتحديات العصر 1',
+      peopleCount: 2, actualAttendees: 2, folderUrl: '#',
+      lectures: [{ name: 'المحاضرة الأولى', column: 5, attendanceCount: 2 }],
+      people: [
+        { rowNumber: 2, id: 'AB001', name: 'توماس ماجد فطيم عطية', count: 2, certificate: 'https://example.com/cert.pdf', cols: { 5: '07:30:00 ص 2026/09/21' } },
+        { rowNumber: 3, id: 'AB002', name: 'مينا سمير جرجس', count: 1, certificate: 'https://example.com/cert.pdf', cols: { 5: '07:32:00 ص 2026/09/21' } }
+      ]
+    },
+    { type: 'meeting', sheetId: 2, courseId: null, name: 'اجتماع الخدام الأسبوعي', peopleCount: 0, actualAttendees: 0, lectures: [], people: [] }
+  ];
+  function findActivity(sheetId) { return data.find(a => a.sheetId === Number(sheetId)); }
+  return {
+    getActivities: () => data.map(a => ({ ...a, people: undefined })),
+    createCourse: (name) => {
+      const id = ++seq;
+      const a = { type: 'course', sheetId: id, courseId: id, name, peopleCount: 0, actualAttendees: 0, folderUrl: '#', lectures: [], people: [] };
+      data.unshift(a); return { ...a };
+    },
+    createMeeting: (name) => {
+      const id = ++seq;
+      const a = { type: 'meeting', sheetId: id, courseId: null, name, peopleCount: 0, actualAttendees: 0, lectures: [], people: [] };
+      data.unshift(a); return { ...a };
+    },
+    getActivity: (sheetId) => { const a = findActivity(sheetId); return { ...a, people: undefined }; },
+    addLecture: (sheetId, name) => {
+      const a = findActivity(sheetId);
+      const column = 5 + a.lectures.length;
+      a.lectures.push({ name, column, attendanceCount: 0 });
+      return { success: true, column, name };
+    },
+    getAttendanceList: (sheetId, lectureColumn) => {
+      const a = findActivity(sheetId);
+      return a.people.map(p => ({
+        rowNumber: p.rowNumber, id: p.id, name: p.name, count: p.count,
+        certificate: p.certificate, hasId: !!p.id, attendedAny: p.count > 0,
+        attendedThisLecture: lectureColumn ? !!p.cols[lectureColumn] : false,
+        timestamp: lectureColumn ? (p.cols[lectureColumn] || '') : '', cols: p.cols
+      }));
+    },
+    searchManualAttendancePeople: (sheetId, lectureColumn, query) => {
+      const a = findActivity(sheetId);
+      const q = query.trim();
+      if (!q) return [];
+      return a.people.filter(p => p.name.includes(q)).map(p => ({
+        rowNumber: p.rowNumber, id: p.id, name: p.name, count: p.count,
+        alreadyAttended: !!p.cols[lectureColumn], hasId: !!p.id
+      }));
+    },
+    recordManualAttendance: (sheetId, lectureColumn, personName, rowNumber) => {
+      const a = findActivity(sheetId);
+      let p = rowNumber ? a.people.find(x => x.rowNumber === rowNumber) : a.people.find(x => x.name === personName);
+      if (p) {
+        if (p.cols[lectureColumn]) return { success: false, alreadyAttended: true, message: 'تم إضافة ' + p.name + ' بالفعل', name: p.name };
+        p.cols[lectureColumn] = 'الآن'; p.count++;
+        return { success: true, name: p.name, count: p.count };
+      }
+      const newRow = { rowNumber: ++seq, id: '', name: personName, count: 1, certificate: '', cols: {} };
+      newRow.cols[lectureColumn] = 'الآن';
+      a.people.push(newRow); a.peopleCount++;
+      return { success: true, name: personName, count: 1 };
+    },
+    recordQrAttendance: (sheetId, lectureColumn, qrData) => {
+      const a = findActivity(sheetId);
+      const sep = qrData.indexOf('--');
+      const id = qrData.substring(0, sep).trim();
+      const name = qrData.substring(sep + 2).trim();
+      let p = a.people.find(x => x.id === id);
+      if (p) {
+        if (p.cols[lectureColumn]) return { success: false, alreadyAttended: true, message: 'تم إضافة ' + p.name + ' بالفعل', name: p.name, count: p.count };
+        p.cols[lectureColumn] = 'الآن'; p.count++;
+        return { success: true, name: p.name, count: p.count };
+      }
+      const newRow = { rowNumber: ++seq, id, name, count: 1, certificate: '', cols: {} };
+      newRow.cols[lectureColumn] = 'الآن';
+      a.people.push(newRow); a.peopleCount++;
+      return { success: true, name, count: 1 };
+    },
+    addPersonWithoutAttendance: (sheetId, personName, personId) => {
+      const a = findActivity(sheetId);
+      const newRow = { rowNumber: ++seq, id: personId || '', name: personName, count: 0, certificate: '', cols: {} };
+      a.people.push(newRow); a.peopleCount++;
+      return { success: true, name: personName };
+    },
+    /* محاكاة فتح شهادة PDF فعلية أثناء الاختبار المحلي فقط */
+    getCertificatePdf: (url) => {
+      return { success: true, base64: SAMPLE_PDF_BASE64, mimeType: 'application/pdf', fileName: 'شهادة.pdf' };
+    },
+    /* محاكاة لقطة الأوفلاين والمزامنة الدفعية أثناء الاختبار المحلي فقط */
+    getActivitySnapshot: (sheetId) => {
+      const a = findActivity(sheetId);
+      return {
+        success: true,
+        activity: { ...a, people: undefined },
+        people: a.people.map(p => ({
+          rowNumber: p.rowNumber, id: p.id, name: p.name, count: p.count,
+          certificate: p.certificate, hasId: !!p.id, attendedAny: p.count > 0,
+          attendedThisLecture: false, timestamp: '', cols: p.cols
+        })),
+        snapshotAt: new Date().toISOString()
+      };
+    },
+    batchSyncAttendance: (sheetId, lectureColumn, records) => {
+      const a = findActivity(sheetId);
+      return records.map(r => {
+        try {
+          if (r.type === 'qr') {
+            const sep = r.qrData.indexOf('--');
+            const id = r.qrData.substring(0, sep).trim();
+            const name = r.qrData.substring(sep + 2).trim();
+            let p = a.people.find(x => x.id === id);
+            if (p) {
+              if (p.cols[lectureColumn]) return { localId: r.localId, status: 'duplicate', name: p.name, count: p.count, message: 'تم إضافة ' + p.name + ' بالفعل' };
+              p.cols[lectureColumn] = 'تمت المزامنة'; p.count++;
+              return { localId: r.localId, status: 'success', name: p.name, count: p.count };
+            }
+            const newRow = { rowNumber: ++seq, id, name, count: 1, certificate: '', cols: {} };
+            newRow.cols[lectureColumn] = 'تمت المزامنة';
+            a.people.push(newRow); a.peopleCount++;
+            return { localId: r.localId, status: 'success', name, count: 1 };
+          }
+          let p = r.rowNumber ? a.people.find(x => x.rowNumber === r.rowNumber) : a.people.find(x => x.name === r.personName);
+          if (p) {
+            if (p.cols[lectureColumn]) return { localId: r.localId, status: 'duplicate', name: p.name, count: p.count, message: 'تم إضافة ' + p.name + ' بالفعل' };
+            p.cols[lectureColumn] = 'تمت المزامنة'; p.count++;
+            return { localId: r.localId, status: 'success', name: p.name, count: p.count };
+          }
+          const newRow = { rowNumber: ++seq, id: r.personId || '', name: r.personName, count: 1, certificate: '', cols: {} };
+          newRow.cols[lectureColumn] = 'تمت المزامنة';
+          a.people.push(newRow); a.peopleCount++;
+          return { localId: r.localId, status: 'success', name: r.personName, count: 1 };
+        } catch (e) {
+          return { localId: r.localId, status: 'error', message: e.message };
+        }
+      });
+    }
+  };
+})();
+
+function callServer(fnName, ...args) {
+  return new Promise((resolve, reject) => {
+    if (HAS_GAS) {
+      google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fnName](...args);
+    } else {
+      try { resolve(MockDB[fnName](...args)); } catch (e) { reject(e); }
+    }
+  });
+}
+
+/* ========================= الحالة العامة ========================= */
+const state = {
+  activities: [],
+  currentActivity: null,
+  currentLecture: null,
+  homeFilter: 'all',
+  lectureFilter: 'all',
+  attendanceFilter: 'all',
+  qrLoopHandle: null,
+  qrStream: null
+};
+
+/* ========================= أدوات مساعدة ========================= */
+function $(sel) { return document.querySelector(sel); }
+function $all(sel) { return Array.from(document.querySelectorAll(sel)); }
+function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; }
+
+/* ========================= تبديل عرض القوائم (قائمة / شبكة) — على كل الشاشات =========================
+   تفضيل واحد مشترك يُحفظ محليًا مرة واحدة، وينطبق على كل شاشة فيها
+   قائمة كروت (الرئيسية، النشاط، المحاضرة، كشف الحضور). زرار التبديل
+   موجود فى أعلى كل واحدة من الشاشات دي، وكلهم بيتحدّثوا مع بعض فورًا
+   لأنهم بيشتغلوا بنفس المفتاح المحفوظ، وبيفضل شغال بنفس الشكل على
+   أي مقاس شاشة (موبايل / تابلت / كمبيوتر). */
+function applyListViewMode(mode) {
+  $all('.list').forEach(list => list.classList.toggle('is-grid', mode === 'grid'));
+  $all('.view-toggle button[data-view-mode]').forEach(b => {
+    b.classList.toggle('is-active', b.dataset.viewMode === mode);
+  });
+}
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.view-toggle button[data-view-mode]');
+  if (!btn) return;
+  const mode = btn.dataset.viewMode;
+  try { localStorage.setItem('listViewMode', mode); } catch (err) {}
+  applyListViewMode(mode);
+});
+(function initListViewMode() {
+  let saved = 'list';
+  try { saved = localStorage.getItem('listViewMode') || 'list'; } catch (err) {}
+  applyListViewMode(saved);
+})();
+
+/**
+ * عرض شاشة مع انتقال يشبه تطبيقات الموبايل.
+ * direction: 'forward' (افتراضي، الدخول لمستوى أعمق) أو 'back' (الرجوع للخلف)
+ */
+function showView(id, direction) {
+  direction = direction || 'forward';
+  const next = $('#' + id);
+  if (!next) return;
+
+  $('#fabBtn').style.display = (id === 'view-home' || id === 'view-lecture') ? 'flex' : 'none';
+
+  const current = $all('.view.is-active').find(v => v.id !== id);
+
+  if (!current || current === next) {
+    $all('.view').forEach(v => { if (v !== next) v.classList.remove('is-active'); });
+    next.classList.add('is-active');
+    return;
+  }
+
+  $all('.view').forEach(v => {
+    v.classList.remove('is-animating', 'slide-in-forward', 'slide-out-forward', 'slide-in-back', 'slide-out-back');
+  });
+
+  const outAnim = direction === 'back' ? 'slide-out-back' : 'slide-out-forward';
+  const inAnim  = direction === 'back' ? 'slide-in-back'  : 'slide-in-forward';
+
+  next.classList.add('is-active');
+  current.classList.add('is-animating', outAnim);
+  next.classList.add('is-animating', inAnim);
+
+  const finish = () => {
+    current.classList.remove('is-active', 'is-animating', outAnim);
+    next.classList.remove('is-animating', inAnim);
+  };
+  setTimeout(finish, 320);
+}
+
+function openSheet(id) { $('#' + id).classList.add('is-open'); }
+function closeSheet(id) { $('#' + id).classList.remove('is-open'); }
+
+function showListLoading(sel) {
+  const node = $(sel);
+  if (!node) return;
+  node.innerHTML = '<div class="loading-row"><span class="spinner"></span><span>جاري التحميل...</span></div>';
+}
+
+$all('[data-close-sheet]').forEach(btn => btn.addEventListener('click', () => {
+  $all('.overlay.is-open').forEach(o => closeSheet(o.id));
+}));
+$all('.overlay').forEach(o => o.addEventListener('click', (e) => { if (e.target === o) closeSheet(o.id); }));
+
+$all('[data-back]').forEach(btn => btn.addEventListener('click', () => {
+  history.back();
+}));
+
+function toast(message, sub, isError) {
+  const node = el(`
+    <div class="toast ${isError ? 'is-error' : ''}">
+      <svg class="toast__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        ${isError ? '<path d="M18 6 6 18M6 6l12 12"/>' : '<path d="m20 6-11 11-5-5"/>'}
+      </svg>
+      <div><div>${message}</div>${sub ? `<span class="toast__sub">${sub}</span>` : ''}</div>
+    </div>`);
+  $('#toastStack').appendChild(node);
+  setTimeout(() => { node.style.opacity = '0'; node.style.transition = 'opacity .25s'; setTimeout(() => node.remove(), 260); }, 3200);
+}
+
+/* ========================= الوضع الليلي — على كل الشاشات =========================
+   زرار الوضع الليلي متكرر فى أعلى كل شاشة، وكلهم بيشتغلوا بتفويض
+   حدث واحد (Event Delegation) على مستوى الصفحة بدل ما نربط كل زرار
+   لوحده، فمش محتاجين IDs فريدة، وأي زرار جديد بنفس الكلاس يشتغل
+   أوتوماتيك بدون أي كود إضافي. */
+function syncThemeColor() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  $('#metaThemeColor').setAttribute('content', isDark ? '#0F1715' : '#F4F5F2');
+}
+syncThemeColor();
+
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.theme-toggle');
+  if (!btn) return;
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  syncThemeColor();
+});
+
+/* ========================= حالة الاتصال بالإنترنت (Offline) ========================= */
+function isOnline() { return navigator.onLine; }
+
+function updateOfflineBanner() {
+  const banner = $('#offlineBanner');
+  const queue = OfflineStore.getQueue();
+  const countEl = $('#offlineBannerCount');
+  const textEl = $('#offlineBannerText');
+
+  if (!isOnline()) {
+    banner.classList.add('is-visible');
+    document.body.classList.add('has-offline-banner');
+    textEl.textContent = 'غير متصل بالإنترنت — الحضور بيتسجل محليًا وهيتزامن أوتوماتيك عند عودة النت';
+  } else if (queue.length > 0) {
+    banner.classList.add('is-visible');
+    document.body.classList.add('has-offline-banner');
+    textEl.textContent = 'جاري مزامنة الحضور المحفوظ محليًا...';
+  } else {
+    banner.classList.remove('is-visible');
+    document.body.classList.remove('has-offline-banner');
+  }
+
+  if (queue.length > 0) {
+    countEl.style.display = 'inline-block';
+    countEl.textContent = queue.length;
+  } else {
+    countEl.style.display = 'none';
+  }
+}
+
+window.addEventListener('online', () => { updateOfflineBanner(); syncPendingQueue(); });
+window.addEventListener('offline', () => { updateOfflineBanner(); toast('انقطع الاتصال بالإنترنت', 'سيتم حفظ الحضور محليًا والمزامنة عند عودة النت', true); });
+
+/* ========================= الشاشة الرئيسية ========================= */
+async function loadHome() {
+  showListLoading('#homeList');
+  try {
+    state.activities = await callServer('getActivities');
+  } catch (err) {
+    state.activities = [];
+    if (!isOnline()) {
+      toast('غير متصل بالإنترنت', 'افتح نشاطًا سبق زيارته لمتابعة تسجيل الحضور أوفلاين', true);
+    }
+  }
+  renderHome();
+}
+
+function renderHome() {
+  const q = $('#homeSearch').value.trim();
+  let items = state.activities.filter(a => (state.homeFilter === 'all' || a.type === state.homeFilter));
+  if (q) items = items.filter(a => a.name.includes(q));
+
+  $('#homeEmpty').style.display = state.activities.length === 0 ? 'flex' : 'none';
+  const list = $('#homeList');
+  list.innerHTML = '';
+  items.forEach(a => list.appendChild(renderActivityCard(a)));
+}
+
+function renderActivityCard(a) {
+  const isCourse = a.type === 'course';
+  const card = el(`
+    <div class="activity-card" data-sheetid="${a.sheetId}">
+      <div class="activity-card__top">
+        <div class="activity-card__emblem">
+          ${isCourse
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 20a5 5 0 0 0-10 0"/><circle cx="12" cy="8" r="4"/></svg>'}
+        </div>
+        <div>
+          <div class="activity-card__name">${a.name}</div>
+          <div class="activity-card__meta">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20a5 5 0 0 0-10 0"/><circle cx="12" cy="8" r="4"/></svg>
+            ${a.peopleCount || 0}
+          </div>
+        </div>
+      </div>
+      <div class="activity-card__actions">
+        <button data-open-attendance>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 17V7m6 10V11M4 21h16"/></svg>
+          عرض كشف الحضور
+        </button>
+        <button data-add-lecture>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          إضافة محاضرة
+        </button>
+      </div>
+      <button class="activity-card__expand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+      <div class="activity-card__lectures"></div>
+    </div>`);
+
+  card.querySelector('.activity-card__top').addEventListener('click', () => openActivity(a.sheetId));
+  card.querySelector('[data-open-attendance]').addEventListener('click', (e) => { e.stopPropagation(); openAttendance(a.sheetId); });
+  card.querySelector('[data-add-lecture]').addEventListener('click', (e) => { e.stopPropagation(); openAddLectureSheet(a.sheetId); });
+  card.querySelector('.activity-card__expand').addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = card.classList.toggle('is-open');
+    if (isOpen) {
+      const box = card.querySelector('.activity-card__lectures');
+      box.innerHTML = '';
+      if (!a.lectures || !a.lectures.length) {
+        box.appendChild(el(`<div class="lecture-row"><span class="lecture-row__count">لا توجد محاضرات بعد</span></div>`));
+        return;
+      }
+      a.lectures.forEach(l => {
+        const row = el(`
+          <button type="button" class="lecture-row">
+            <span class="lecture-row__name">${l.name}</span>
+            <span class="lecture-row__count">${l.attendanceCount || 0} حاضر</span>
+          </button>`);
+        row.addEventListener('click', async (ev) => {
+          ev.stopPropagation();
+          await openActivity(a.sheetId, { silent: true });
+          history.pushState({ view: 'view-activity', sheetId: a.sheetId }, '', '#view-activity');
+          openLecture(l);
+        });
+        box.appendChild(row);
+      });
+    }
+  });
+  return card;
+}
+
+$('#homeSearch').addEventListener('input', renderHome);
+$('#homeFilters').addEventListener('click', (e) => {
+  const btn = e.target.closest('.chip'); if (!btn) return;
+  $all('#homeFilters .chip').forEach(c => c.classList.remove('is-active'));
+  btn.classList.add('is-active');
+  state.homeFilter = btn.dataset.filter;
+  renderHome();
+});
+
+/* ========================= FAB الرئيسي ========================= */
+$('#fabBtn').addEventListener('click', () => {
+  if ($('#view-home').classList.contains('is-active')) openSheet('sheetHomeFab');
+  else if ($('#view-lecture').classList.contains('is-active')) openSheet('sheetLectureFab');
+});
+
+$all('[data-create]').forEach(btn => btn.addEventListener('click', () => {
+  closeSheet('sheetHomeFab');
+  const type = btn.dataset.create;
+  $('#createActivityTitle').textContent = type === 'course' ? 'اسم الكورس' : 'اسم الاجتماع';
+  $('#createActivityInput').value = '';
+  $('#createActivityInput').dataset.type = type;
+  openSheet('sheetCreateActivity');
+  setTimeout(() => $('#createActivityInput').focus(), 250);
+}));
+
+$('#createActivityConfirm').addEventListener('click', async () => {
+  const input = $('#createActivityInput');
+  const name = input.value.trim();
+  if (!name) return;
+  if (!isOnline()) {
+    toast('لازم تكون متصل بالإنترنت', 'إنشاء كورس أو اجتماع جديد يحتاج اتصال بالنت أول مرة', true);
+    return;
+  }
+  const type = input.dataset.type;
+  try {
+    const result = type === 'course' ? await callServer('createCourse', name) : await callServer('createMeeting', name);
+    closeSheet('sheetCreateActivity');
+    await loadHome();
+    toast('تم الإنشاء بنجاح', name);
+  } catch (err) {
+    toast('تعذّر الإنشاء', err.message || '', true);
+  }
+});
+
+/* ========================= شاشة النشاط ========================= */
+async function openActivity(sheetId, options) {
+  options = options || {};
+  const cached = state.activities.find(a => a.sheetId === sheetId);
+  const snapshot = OfflineStore.getSnapshot(sheetId);
+  const direction = options.animateBack ? 'back' : 'forward';
+
+  if (!options.silent && !options.skipHistory) {
+    history.pushState({ view: 'view-activity', sheetId: sheetId }, '', '#view-activity');
+  }
+
+  if (cached) {
+    state.currentActivity = cached;
+    $('#activityTitle').textContent = cached.name;
+    renderActivityLectures();
+    if (!options.silent) showView('view-activity', direction);
+  } else if (snapshot) {
+    state.currentActivity = snapshot.activity;
+    $('#activityTitle').textContent = snapshot.activity.name;
+    renderActivityLectures();
+    if (!options.silent) showView('view-activity', direction);
+  } else {
+    if (!options.silent) showListLoading('#activityLectureList');
+    if (!options.silent) showView('view-activity', direction);
+  }
+
+  if (!isOnline()) {
+    if (!cached && !snapshot) toast('غير متصل بالإنترنت', 'لا توجد نسخة محفوظة محليًا لهذا النشاط', true);
+    return;
+  }
+
+  try {
+    const fresh = await callServer('getActivity', sheetId);
+    state.currentActivity = fresh;
+    if ($('#view-activity').classList.contains('is-active') || options.silent) {
+      renderActivityLectures();
+    }
+  } catch (err) {
+    if (!cached && !snapshot) toast('تعذّر تحميل بيانات النشاط', '', true);
+  }
+}
+
+function renderActivityLectures() {
+  const a = state.currentActivity;
+  const lectures = a.lectures || [];
+  $('#activityEmpty').style.display = lectures.length === 0 ? 'flex' : 'none';
+  const list = $('#activityLectureList');
+  list.innerHTML = '';
+  lectures.forEach(l => {
+    const row = el(`
+      <div class="activity-card" style="padding:0;">
+        <div class="activity-card__top" style="cursor:pointer;">
+          <div class="activity-card__emblem">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 3v3M16 3v3"/></svg>
+          </div>
+          <div>
+            <div class="activity-card__name">${l.name}</div>
+            <div class="activity-card__meta">${l.attendanceCount || 0} حاضر فعليًا</div>
+          </div>
+        </div>
+      </div>`);
+    row.addEventListener('click', () => openLecture(l));
+    list.appendChild(row);
+  });
+  applyListViewMode((localStorage.getItem('listViewMode') || 'list'));
+}
+
+$('#activityAttendanceBtn').addEventListener('click', () => openAttendance(state.currentActivity.sheetId));
+
+function openAddLectureSheet(sheetId) {
+  state.pendingLectureSheetId = sheetId;
+  $('#addLectureInput').value = '';
+  openSheet('sheetAddLecture');
+  setTimeout(() => $('#addLectureInput').focus(), 250);
+}
+
+$('#addLectureConfirm').addEventListener('click', async () => {
+  const name = $('#addLectureInput').value.trim();
+  if (!name) return;
+  if (!isOnline()) {
+    toast('لازم تكون متصل بالإنترنت', 'إضافة محاضرة جديدة يحتاج اتصال بالنت', true);
+    return;
+  }
+  const sheetId = state.pendingLectureSheetId || (state.currentActivity && state.currentActivity.sheetId);
+  try {
+    await callServer('addLecture', sheetId, name);
+    closeSheet('sheetAddLecture');
+    if (state.currentActivity && state.currentActivity.sheetId === sheetId) {
+      state.currentActivity = await callServer('getActivity', sheetId);
+      renderActivityLectures();
+    }
+    await loadHome();
+    toast('تمت إضافة المحاضرة', name);
+  } catch (err) {
+    toast('تعذّر إضافة المحاضرة', err.message || '', true);
+  }
+});
+
+/* ========================= شاشة محاضرة واحدة ========================= */
+async function openLecture(lecture, options) {
+  options = options || {};
+  state.currentLecture = lecture;
+  $('#lectureTitle').textContent = lecture.name;
+
+  if (!options.skipHistory) {
+    history.pushState({
+      view: 'view-lecture',
+      sheetId: state.currentActivity ? state.currentActivity.sheetId : null,
+      lectureColumn: lecture.column,
+      lectureName: lecture.name
+    }, '', '#view-lecture');
+  }
+
+  showView('view-lecture', options.animateBack ? 'back' : 'forward');
+  showListLoading('#lectureList');
+  $('#lectureEmpty').style.display = 'none';
+  await refreshLectureList();
+}
+
+async function refreshLectureList() {
+  const a = state.currentActivity;
+  const l = state.currentLecture;
+
+  if (!isOnline()) {
+    const snapshot = OfflineStore.getSnapshot(a.sheetId);
+    if (snapshot) {
+      state.lectureAttendance = snapshot.people.filter(p => p.cols && p.cols[l.column]);
+      renderLectureList();
+    } else {
+      $('#lectureList').innerHTML = '';
+      $('#lectureEmpty').style.display = 'flex';
+      toast('لا توجد بيانات محفوظة محليًا لهذا النشاط', 'افتحه وأنت متصل بالنت مرة واحدة على الأقل', true);
+    }
+    return;
+  }
+
+  try {
+    const list = await callServer('getAttendanceList', a.sheetId, l.column);
+    OfflineStore.saveSnapshot(a.sheetId, { activity: a, people: list, snapshotAt: new Date().toISOString() });
+    state.lectureAttendance = list.filter(p => p.attendedThisLecture || (p.cols && p.cols[l.column]));
+    renderLectureList();
+  } catch (err) {
+    const snapshot = OfflineStore.getSnapshot(a.sheetId);
+    if (snapshot) {
+      state.lectureAttendance = snapshot.people.filter(p => p.cols && p.cols[l.column]);
+      renderLectureList();
+      toast('تعذّر الاتصال بالخادم', 'يتم عرض آخر نسخة محفوظة محليًا', true);
+    } else {
+      $('#lectureList').innerHTML = '';
+      toast('تعذّر تحميل كشف الحضور', '', true);
+    }
+  }
+}
+
+function renderLectureList() {
+  const q = $('#lectureSearch').value.trim();
+  let items = state.lectureAttendance || [];
+  if (state.lectureFilter === 'withId') items = items.filter(p => p.hasId);
+  if (state.lectureFilter === 'withoutId') items = items.filter(p => !p.hasId);
+  if (q) items = items.filter(p => p.name.includes(q));
+
+  $('#lectureEmpty').style.display = (state.lectureAttendance || []).length === 0 ? 'flex' : 'none';
+  const list = $('#lectureList');
+  list.innerHTML = '';
+  items.forEach(p => list.appendChild(renderPersonCard(p, [state.currentLecture])));
+  applyListViewMode((localStorage.getItem('listViewMode') || 'list'));
+}
+
+$('#lectureSearch').addEventListener('input', renderLectureList);
+$('#view-lecture').addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-lfilter]');
+  if (!chip) return;
+  $all('#view-lecture [data-lfilter]').forEach(c => c.classList.remove('is-active'));
+  chip.classList.add('is-active');
+  state.lectureFilter = chip.dataset.lfilter;
+  renderLectureList();
+});
+
+function renderPersonCard(p, lecturesToShow) {
+  const lecturesHtml = (lecturesToShow || (state.currentActivity && state.currentActivity.lectures) || [])
+    .filter(l => p.cols && p.cols[l.column])
+    .map(l => {
+      const value = p.cols[l.column];
+      const pending = value === PENDING_SYNC_LABEL;
+      return `<div class="person-card__lecture-line${pending ? ' is-pending' : ''}"><span>${l.name}</span><b>${pending ? '⏳ بانتظار المزامنة' : value}</b></div>`;
+    })
+    .join('');
+
+  const card = el(`
+    <div class="person-card">
+      <div class="person-card__body">
+        <div class="person-card__head">
+          <div>
+            <div class="person-card__name">${p.name}</div>
+            ${p.id ? `<div class="person-card__id">ID: ${p.id}</div>` : `<div class="person-card__id">بدون ID</div>`}
+          </div>
+          <div class="person-card__count">${p.count}</div>
+        </div>
+        ${lecturesHtml ? `<div class="person-card__lectures">${lecturesHtml}</div>` : ''}
+        ${p.certificate ? `<button class="person-card__cert" data-cert="${p.certificate}" data-name="${p.name}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            عرض الشهادة</button>` : ''}
+      </div>
+    </div>`);
+  const certBtn = card.querySelector('[data-cert]');
+  if (certBtn) certBtn.addEventListener('click', () => openCertificate(certBtn.dataset.cert, certBtn.dataset.name));
+  return card;
+}
+
+/* ========================= كشف الحضور الكامل ========================= */
+async function openAttendance(sheetId, options) {
+  options = options || {};
+  const cached = state.activities.find(a => a.sheetId === sheetId);
+  const snapshot = OfflineStore.getSnapshot(sheetId);
+  state.currentActivity = cached || (snapshot ? snapshot.activity : { sheetId, name: '' });
+  $('#attendanceSub').textContent = state.currentActivity.name || '';
+
+  if (!options.skipHistory) {
+    history.pushState({ view: 'view-attendance', sheetId: sheetId }, '', '#view-attendance');
+  }
+
+  showView('view-attendance', options.animateBack ? 'back' : 'forward');
+
+  if (snapshot) {
+    state.fullAttendance = snapshot.people;
+    renderFullAttendance();
+  } else {
+    showListLoading('#attendanceFullList');
+  }
+
+  if (!isOnline()) {
+    if (!snapshot) {
+      $('#attendanceFullList').innerHTML = '';
+      toast('لا توجد بيانات محفوظة محليًا لهذا النشاط', 'افتحه وأنت متصل بالنت مرة واحدة على الأقل', true);
+    }
+    return;
+  }
+
+  try {
+    const [fresh, list] = await Promise.all([
+      callServer('getActivity', sheetId),
+      callServer('getAttendanceList', sheetId, null)
+    ]);
+    state.currentActivity = fresh;
+    $('#attendanceSub').textContent = fresh.name;
+    state.fullAttendance = list;
+    OfflineStore.saveSnapshot(sheetId, { activity: fresh, people: list, snapshotAt: new Date().toISOString() });
+    renderFullAttendance();
+  } catch (err) {
+    if (!snapshot) {
+      $('#attendanceFullList').innerHTML = '';
+      toast('تعذّر تحميل كشف الحضور', '', true);
+    } else {
+      toast('تعذّر الاتصال بالخادم', 'يتم عرض آخر نسخة محفوظة محليًا', true);
+    }
+  }
+}
+
+function renderFullAttendance() {
+  const q = $('#attendanceSearch').value.trim();
+  let items = state.fullAttendance || [];
+  if (state.attendanceFilter === 'withId') items = items.filter(p => p.hasId);
+  if (state.attendanceFilter === 'withoutId') items = items.filter(p => !p.hasId);
+  if (q) items = items.filter(p => p.name.includes(q));
+  const list = $('#attendanceFullList');
+  list.innerHTML = '';
+  items.forEach(p => list.appendChild(renderPersonCard(p)));
+  applyListViewMode((localStorage.getItem('listViewMode') || 'list'));
+}
+$('#attendanceSearch').addEventListener('input', renderFullAttendance);
+$('#view-attendance').addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-afilter]');
+  if (!chip) return;
+  $all('#view-attendance [data-afilter]').forEach(c => c.classList.remove('is-active'));
+  chip.classList.add('is-active');
+  state.attendanceFilter = chip.dataset.afilter;
+  renderFullAttendance();
+});
+
+/* ========================= الشهادة (عرض PDF حقيقي داخل الموقع) ========================= */
+let currentCertFile = null;
+
+if (window.pdfjsLib) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+}
+
+/**
+ * يحوّل اسم الشخص لاسم ملف صالح.
+ *
+ * ملاحظة مهمة (قيد منصّة وليس خطأ فى الكود): بعض إصدارات أندرويد/كروم
+ * عندها مشكلة معروفة (Chromium bug) فى التعامل مع أسماء ملفات غير
+ * لاتينية (عربي) وقت المشاركة عبر Web Share API تحديدًا. تطبيع النص
+ * لصيغة NFC هنا بيقلل احتمالية المشكلة، لكنه مش ضمان كامل. البديل
+ * المضمون 100%: زرار "تنزيل" بيحفظ الملف باسم الشخص الصحيح دايمًا.
+ */
+function sanitizeFileName_(str) {
+  const cleaned = String(str || '')
+    .normalize('NFC')
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned || 'شهادة';
+}
+
+function base64ToBlob(base64, mimeType) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mimeType });
+}
+
+async function renderPdfPages_(base64) {
+  const body = $('#pdfViewerBody');
+  body.innerHTML = '';
+
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+  const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+  const targetWidth = Math.min(body.clientWidth || 320, 700);
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const baseViewport = page.getViewport({ scale: 1 });
+    const scale = (targetWidth - 20) / baseViewport.width;
+    const viewport = page.getViewport({ scale: scale > 0 ? scale : 1 });
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'pdf-page-canvas';
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport }).promise;
+    body.appendChild(canvas);
+  }
+}
+
+async function openCertificate(url, name) {
+  $('#pdfViewerTitle').textContent = name || 'شهادة';
+  $('#pdfViewerBody').innerHTML = '<div class="pdf-viewer__loading">جاري تحميل الشهادة...</div>';
+  $('#pdfShareBtn').disabled = true;
+  $('#pdfDownloadBtn').disabled = true;
+  currentCertFile = null;
+  openSheet('sheetCertificateViewer');
+
+  if (!isOnline()) {
+    $('#pdfViewerBody').innerHTML = '<div class="pdf-viewer__loading">عرض الشهادات يحتاج اتصال بالإنترنت</div>';
+    return;
+  }
+
+  try {
+    const data = await callServer('getCertificatePdf', url);
+
+    currentCertFile = {
+      base64: data.base64,
+      mimeType: data.mimeType || 'application/pdf',
+      fileName: sanitizeFileName_(name || data.fileName) + '.pdf'
+    };
+
+    if (window.pdfjsLib) {
+      await renderPdfPages_(data.base64);
+    } else {
+      const dataUri = `data:${currentCertFile.mimeType};base64,${data.base64}`;
+      $('#pdfViewerBody').innerHTML = `<embed src="${dataUri}" type="application/pdf" class="pdf-embed">`;
+    }
+
+    $('#pdfShareBtn').disabled = false;
+    $('#pdfDownloadBtn').disabled = false;
+  } catch (err) {
+    $('#pdfViewerBody').innerHTML = '<div class="pdf-viewer__loading">تعذّر عرض الشهادة، حاول مرة أخرى</div>';
+  }
+}
+
+$('#pdfCloseBtn').addEventListener('click', () => closeSheet('sheetCertificateViewer'));
+
+$('#pdfDownloadBtn').addEventListener('click', () => {
+  if (!currentCertFile) return;
+  const blob = base64ToBlob(currentCertFile.base64, currentCertFile.mimeType);
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = currentCertFile.fileName || 'شهادة.pdf';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+});
+
+$('#pdfShareBtn').addEventListener('click', async () => {
+  if (!currentCertFile) return;
+  const blob = base64ToBlob(currentCertFile.base64, currentCertFile.mimeType);
+  const file = new File([blob], currentCertFile.fileName || 'شهادة.pdf', { type: currentCertFile.mimeType });
+  const shareTitle = $('#pdfViewerTitle').textContent;
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: shareTitle, text: shareTitle });
+    } catch (err) {}
+  } else {
+    toast('المشاركة كملف غير مدعومة على هذا المتصفح', 'استخدم زر التنزيل بدلاً من ذلك', true);
+  }
+});
+
+/* ========================= FAB داخل المحاضرة ========================= */
+$('#goScanBtn').addEventListener('click', () => { closeSheet('sheetLectureFab'); openScan(); });
+$('#goManualBtn').addEventListener('click', () => { closeSheet('sheetLectureFab'); openManualAddSheet(); });
+$('#openManualAddBtn').addEventListener('click', openManualAddSheet);
+
+/* ========================= شاشة السكان (التصميم الأصلي) ========================= */
+async function openScan(options) {
+  options = options || {};
+  $('#scanLectureTitle').textContent = state.currentLecture.name;
+
+  if (!options.skipHistory) {
+    history.pushState({
+      view: 'view-scan',
+      sheetId: state.currentActivity ? state.currentActivity.sheetId : null,
+      lectureColumn: state.currentLecture.column,
+      lectureName: state.currentLecture.name
+    }, '', '#view-scan');
+  }
+
+  showView('view-scan', options.animateBack ? 'back' : 'forward');
+  await startScanner();
+}
+
+async function startScanner() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    state.qrStream = stream;
+    const video = $('#scanVideo');
+    video.srcObject = stream;
+    await video.play();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const tick = () => {
+      if (!state.qrStream) return;
+      if (video.readyState === video.HAVE_ENOUGH_DATA && window.jsQR) {
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = window.jsQR(imageData.data, imageData.width, imageData.height);
+        if (code && code.data) handleQrDetected(code.data);
+      }
+      state.qrLoopHandle = requestAnimationFrame(tick);
+    };
+    state.qrLoopHandle = requestAnimationFrame(tick);
+  } catch (err) {
+    // ملاحظة: منصة Google Apps Script تمنع حاليًا صلاحية الكاميرا (Permissions-Policy)
+    // داخل الإطار الذى تُعرض به صفحات الويب أب — وهى مشكلة معروفة من جوجل نفسها
+    // ولا يمكن حلها من كود الصفحة. الإضافة اليدوية تبقى البديل المتاح داخل Apps Script.
+    $('#scanHint').textContent = 'تعذّر فتح الكاميرا هنا (قيود منصة Apps Script) — استخدم الإضافة اليدوية';
+    toast('تعذّر فتح الكاميرا', 'يمكنك استخدام الإضافة اليدوية بدلًا من ذلك', true);
+  }
+}
+
+function stopScanner() {
+  if (state.qrLoopHandle) cancelAnimationFrame(state.qrLoopHandle);
+  state.qrLoopHandle = null;
+  if (state.qrStream) { state.qrStream.getTracks().forEach(t => t.stop()); state.qrStream = null; }
+}
+
+let qrCooldown = false;
+async function handleQrDetected(qrData) {
+  if (qrCooldown) return;
+  qrCooldown = true;
+  setTimeout(() => (qrCooldown = false), 900);
+
+  const sheetId = state.currentActivity.sheetId;
+  const column = state.currentLecture.column;
+
+  if (!isOnline()) {
+    try {
+      const result = recordOfflineAttendance(sheetId, column, 'qr', { qrData });
+      playSound(result.success);
+      if (result.success) toast('✓ تم الحفظ محليًا (بانتظار المزامنة)', result.name, false);
+      else toast(result.message, '', true);
+    } catch (err) {
+      playSound(false);
+      toast(err.message || 'تعذّر تسجيل الحضور محليًا', '', true);
+    }
+    updateOfflineBanner();
+    return;
+  }
+
+  try {
+    const result = await callServer('recordQrAttendance', sheetId, column, qrData);
+    playSound(result.success);
+    if (result.success) toast('✓ تم تسجيل الحضور', result.name, false);
+    else toast('تم إضافة ' + result.name + ' بالفعل', '', true);
+    refreshSnapshotSilently_(sheetId, column);
+  } catch (err) {
+    try {
+      const result = recordOfflineAttendance(sheetId, column, 'qr', { qrData });
+      playSound(result.success);
+      if (result.success) toast('✓ تم الحفظ محليًا (بانتظار المزامنة)', result.name, false);
+      else toast(result.message, '', true);
+    } catch (offlineErr) {
+      playSound(false);
+      toast('تعذّر قراءة الرمز', '', true);
+    }
+    updateOfflineBanner();
+  }
+}
+
+function playSound(success) {
+  try {
+    const ctxAudio = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctxAudio.createOscillator();
+    const gain = ctxAudio.createGain();
+    osc.frequency.value = success ? 880 : 220;
+    osc.connect(gain); gain.connect(ctxAudio.destination);
+    gain.gain.setValueAtTime(0.15, ctxAudio.currentTime);
+    osc.start(); osc.stop(ctxAudio.currentTime + 0.15);
+  } catch (e) {}
+}
+
+/* ========================= الإضافة اليدوية ========================= */
+let manualSearchToken = 0;
+function openManualAddSheet() {
+  $('#manualAddInput').value = '';
+  $('#manualSearchResults').innerHTML = '';
+  openSheet('sheetManualAdd');
+  setTimeout(() => $('#manualAddInput').focus(), 250);
+}
+
+$('#manualAddInput').addEventListener('input', async (e) => {
+  const q = e.target.value.trim();
+  const myToken = ++manualSearchToken;
+  if (!q) { $('#manualSearchResults').innerHTML = ''; return; }
+
+  let results;
+  if (!isOnline()) {
+    results = searchOfflineByName_(state.currentActivity.sheetId, state.currentLecture.column, q);
+  } else {
+    try {
+      results = await callServer('searchManualAttendancePeople', state.currentActivity.sheetId, state.currentLecture.column, q);
+    } catch (err) {
+      results = searchOfflineByName_(state.currentActivity.sheetId, state.currentLecture.column, q);
+    }
+  }
+  if (myToken !== manualSearchToken) return;
+
+  const box = $('#manualSearchResults');
+  box.innerHTML = '';
+  results.forEach(r => {
+    const row = el(`
+      <div class="search-result-row">
+        <div>
+          <div class="search-result-row__name">${r.name}</div>
+          <div class="search-result-row__hint">${r.alreadyAttended ? '✓ تم تسجيل الحضور بالفعل' : (r.count || 0) + ' حضور سابق'}</div>
+        </div>
+        ${r.alreadyAttended ? '' : `<button class="plus-btn" data-row="${r.rowNumber}" data-name="${r.name}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg></button>`}
+      </div>`);
+    const plus = row.querySelector('.plus-btn');
+    if (plus) plus.addEventListener('click', () => {
+      closeSheet('sheetManualAdd');
+      openConfirmAttendance(r.name, r.rowNumber);
+    });
+    box.appendChild(row);
+  });
+});
+
+function openConfirmAttendance(name, rowNumber) {
+  $('#confirmPersonName').textContent = name;
+  $('#confirmLectureName').textContent = state.currentLecture.name;
+  $('#confirmAttendanceBtn').onclick = async () => {
+    const sheetId = state.currentActivity.sheetId;
+    const column = state.currentLecture.column;
+
+    if (!isOnline()) {
+      try {
+        const result = recordOfflineAttendance(sheetId, column, 'manual', { personName: name, rowNumber });
+        closeSheet('sheetConfirmAttendance');
+        if (result.success) toast('✓ تم الحفظ محليًا (بانتظار المزامنة)', result.name);
+        else toast(result.message, '', true);
+        if (!$('#view-scan').classList.contains('is-active')) await refreshLectureList();
+      } catch (err) {
+        closeSheet('sheetConfirmAttendance');
+        toast(err.message || 'تعذّر تسجيل الحضور محليًا', '', true);
+      }
+      updateOfflineBanner();
+      return;
+    }
+
+    try {
+      const result = await callServer('recordManualAttendance', sheetId, column, name, rowNumber);
+      closeSheet('sheetConfirmAttendance');
+      if (result.success) {
+        toast('✓ تم تسجيل الحضور', result.name);
+        if ($('#view-scan').classList.contains('is-active')) { /* يبقى فى شاشة السكان */ }
+        else await refreshLectureList();
+        refreshSnapshotSilently_(sheetId, column);
+      } else {
+        toast('تم إضافة ' + result.name + ' بالفعل', '', true);
+      }
+    } catch (err) {
+      const result = recordOfflineAttendance(sheetId, column, 'manual', { personName: name, rowNumber });
+      closeSheet('sheetConfirmAttendance');
+      if (result.success) toast('✓ تم الحفظ محليًا (بانتظار المزامنة)', result.name);
+      else toast(result.message, '', true);
+      updateOfflineBanner();
+    }
+  };
+  openSheet('sheetConfirmAttendance');
+}
+
+$('#manualAddConfirm').addEventListener('click', async () => {
+  const name = $('#manualAddInput').value.trim();
+  if (!name) return;
+  const sheetId = state.currentActivity.sheetId;
+  const column = state.currentLecture.column;
+
+  if (!isOnline()) {
+    try {
+      const result = recordOfflineAttendance(sheetId, column, 'manual', { personName: name });
+      closeSheet('sheetManualAdd');
+      if (result.success) {
+        toast('✓ تم الحفظ محليًا (بانتظار المزامنة)', result.name);
+        if (!$('#view-scan').classList.contains('is-active')) await refreshLectureList();
+      } else {
+        toast(result.message, '', true);
+      }
+    } catch (err) {
+      toast(err.message || 'تعذّر تسجيل الحضور محليًا', '', true);
+    }
+    updateOfflineBanner();
+    return;
+  }
+
+  try {
+    const result = await callServer('recordManualAttendance', sheetId, column, name, null);
+    if (result && result.requiresSelection) {
+      toast('يوجد أكثر من شخص بهذا الاسم', 'اختر الاسم من نتائج البحث بالأعلى', true);
+      return;
+    }
+    closeSheet('sheetManualAdd');
+    if (result.success) {
+      toast('✓ تم تسجيل الحضور', result.name);
+      if (!$('#view-scan').classList.contains('is-active')) await refreshLectureList();
+      refreshSnapshotSilently_(sheetId, column);
+    } else {
+      toast('تم إضافة ' + result.name + ' بالفعل', '', true);
+    }
+  } catch (err) {
+    const result = recordOfflineAttendance(sheetId, column, 'manual', { personName: name });
+    closeSheet('sheetManualAdd');
+    if (result.success) {
+      toast('✓ تم الحفظ محليًا (بانتظار المزامنة)', result.name);
+      if (!$('#view-scan').classList.contains('is-active')) await refreshLectureList();
+    } else {
+      toast(result.message, '', true);
+    }
+    updateOfflineBanner();
+  }
+});
+
+/* ========================= دعم العمل أوفلاين ========================= */
+const PENDING_SYNC_LABEL = '__PENDING_SYNC__';
+
+const OfflineStore = {
+  saveSnapshot(sheetId, snapshot) {
+    try { localStorage.setItem('snap_' + sheetId, JSON.stringify(snapshot)); } catch (e) {}
+  },
+  getSnapshot(sheetId) {
+    try { return JSON.parse(localStorage.getItem('snap_' + sheetId) || 'null'); }
+    catch (e) { return null; }
+  },
+  getQueue() {
+    try { return JSON.parse(localStorage.getItem('offlineQueue') || '[]'); }
+    catch (e) { return []; }
+  },
+  setQueue(queue) {
+    try { localStorage.setItem('offlineQueue', JSON.stringify(queue)); } catch (e) {}
+  },
+  addToQueue(record) {
+    const q = this.getQueue();
+    q.push(record);
+    this.setQueue(q);
+  },
+  removeFromQueue(localId) {
+    this.setQueue(this.getQueue().filter(r => r.localId !== localId));
+  }
+};
+
+function genLocalId_() {
+  return (crypto && crypto.randomUUID) ? crypto.randomUUID() : ('local-' + Date.now() + '-' + Math.random().toString(16).slice(2));
+}
+
+function parseQrDataClient_(qrData) {
+  qrData = String(qrData || '').trim();
+  if (!qrData) throw new Error('QR Code فارغ.');
+  const sep = '--';
+  const index = qrData.indexOf(sep);
+  if (index === -1) throw new Error('صيغة QR غير صحيحة.');
+  const id = qrData.substring(0, index).trim();
+  const name = qrData.substring(index + sep.length).trim().replace(/\s+/g, ' ');
+  if (!id || !name) throw new Error('بيانات QR غير مكتملة.');
+  return { id, name };
+}
+
+function normalizeArabicNameClient_(name) {
+  return String(name || '')
+    .toLowerCase().trim()
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/ؤ/g, 'و')
+    .replace(/ئ/g, 'ي')
+    .replace(/چ/g, 'ج')
+    .replace(/ڤ/g, 'ف')
+    .replace(/گ/g, 'ك')
+    .replace(/\s+/g, ' ');
+}
+
+function searchOfflineByName_(sheetId, lectureColumn, query) {
+  const snapshot = OfflineStore.getSnapshot(sheetId);
+  if (!snapshot) return [];
+  const q = normalizeArabicNameClient_(query);
+  if (!q) return [];
+  return snapshot.people
+    .filter(p => p.name && normalizeArabicNameClient_(p.name).indexOf(q) !== -1)
+    .map(p => ({
+      rowNumber: p.rowNumber,
+      id: p.id,
+      name: p.name,
+      count: p.count,
+      alreadyAttended: !!(p.cols && p.cols[lectureColumn]),
+      hasId: !!p.id
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+}
+
+function recordOfflineAttendance(sheetId, lectureColumn, type, payload) {
+  const snapshot = OfflineStore.getSnapshot(sheetId);
+  if (!snapshot) {
+    throw new Error('افتح هذا النشاط وأنت متصل بالنت مرة واحدة على الأقل أولاً، حتى يتم حفظ نسخة محلية منه.');
+  }
+
+  let match = null;
+  let newPersonId = '';
+  let newPersonName = '';
+
+  if (type === 'qr') {
+    const person = parseQrDataClient_(payload.qrData);
+    newPersonId = person.id;
+    newPersonName = person.name;
+    match = snapshot.people.find(p => String(p.id || '').trim() === person.id);
+  } else {
+    newPersonName = payload.personName;
+    newPersonId = payload.personId || '';
+    if (payload.rowNumber) {
+      match = snapshot.people.find(p => p.rowNumber === Number(payload.rowNumber));
+    } else {
+      const norm = normalizeArabicNameClient_(payload.personName);
+      const candidates = snapshot.people.filter(p => normalizeArabicNameClient_(p.name) === norm);
+      if (candidates.length > 1) {
+        return { success: false, message: 'يوجد أكثر من شخص بهذا الاسم — استخدم نتائج البحث لاختيار الشخص الصحيح' };
+      }
+      match = candidates[0] || null;
+    }
+  }
+
+  const localId = genLocalId_();
+  const clientTimestamp = new Date().toISOString();
+
+  if (match) {
+    if (match.cols && match.cols[lectureColumn]) {
+      return { success: false, alreadyAttended: true, message: 'تم إضافة ' + match.name + ' بالفعل', name: match.name };
+    }
+    match.cols = match.cols || {};
+    match.cols[lectureColumn] = PENDING_SYNC_LABEL;
+    match.count = (Number(match.count) || 0) + 1;
+    match.attendedAny = true;
+
+    OfflineStore.saveSnapshot(sheetId, snapshot);
+    OfflineStore.addToQueue({
+      localId, sheetId, lectureColumn, type,
+      qrData: payload.qrData, personName: match.name,
+      rowNumber: match.rowNumber, clientTimestamp
+    });
+
+    return { success: true, name: match.name, count: match.count };
+  }
+
+  const newPerson = {
+    rowNumber: null,
+    id: newPersonId,
+    name: newPersonName,
+    count: 1,
+    certificate: '',
+    hasId: !!newPersonId,
+    attendedAny: true,
+    cols: {}
+  };
+  newPerson.cols[lectureColumn] = PENDING_SYNC_LABEL;
+
+  snapshot.people.push(newPerson);
+  if (snapshot.activity) snapshot.activity.peopleCount = (Number(snapshot.activity.peopleCount) || 0) + 1;
+
+  OfflineStore.saveSnapshot(sheetId, snapshot);
+  OfflineStore.addToQueue({
+    localId, sheetId, lectureColumn, type,
+    qrData: payload.qrData, personName: newPersonName,
+    personId: newPersonId, clientTimestamp
+  });
+
+  return { success: true, name: newPersonName, count: 1 };
+}
+
+async function refreshSnapshotSilently_(sheetId, lectureColumn) {
+  if (!isOnline()) return;
+  try {
+    const list = await callServer('getAttendanceList', sheetId, lectureColumn);
+    const activity = state.currentActivity && state.currentActivity.sheetId === sheetId
+      ? state.currentActivity
+      : (OfflineStore.getSnapshot(sheetId) || {}).activity;
+    OfflineStore.saveSnapshot(sheetId, { activity, people: list, snapshotAt: new Date().toISOString() });
+  } catch (err) {}
+}
+
+let isSyncingQueue = false;
+async function syncPendingQueue() {
+  if (isSyncingQueue) return;
+  if (!isOnline()) return;
+
+  const queue = OfflineStore.getQueue();
+  if (!queue.length) { updateOfflineBanner(); return; }
+
+  isSyncingQueue = true;
+  updateOfflineBanner();
+
+  const groups = {};
+  queue.forEach(r => {
+    const key = r.sheetId + '::' + r.lectureColumn;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+
+  let syncedCount = 0;
+  let hadError = false;
+
+  for (const key in groups) {
+    const [sheetIdStr, columnStr] = key.split('::');
+    const sheetId = isNaN(Number(sheetIdStr)) ? sheetIdStr : Number(sheetIdStr);
+    const column = Number(columnStr);
+
+    try {
+      const results = await callServer('batchSyncAttendance', sheetId, column, groups[key]);
+      results.forEach(r => {
+        if (r.status === 'success' || r.status === 'duplicate') {
+          OfflineStore.removeFromQueue(r.localId);
+          syncedCount++;
+        } else {
+          hadError = true;
+        }
+      });
+
+      const list = await callServer('getAttendanceList', sheetId, column);
+      const activity = (OfflineStore.getSnapshot(sheetId) || {}).activity;
+      OfflineStore.saveSnapshot(sheetId, { activity, people: list, snapshotAt: new Date().toISOString() });
+
+      if (state.currentActivity && state.currentActivity.sheetId === sheetId) {
+        if (state.currentLecture && state.currentLecture.column === column && $('#view-lecture').classList.contains('is-active')) {
+          await refreshLectureList();
+        }
+        if ($('#view-attendance').classList.contains('is-active')) {
+          state.fullAttendance = list;
+          renderFullAttendance();
+        }
+      }
+    } catch (err) {
+      hadError = true;
+    }
+  }
+
+  isSyncingQueue = false;
+  updateOfflineBanner();
+
+  if (syncedCount > 0) {
+    toast('تمت مزامنة الحضور المحفوظ محليًا', syncedCount + ' تسجيل', false);
+  }
+  if (hadError) {
+    toast('تعذّرت مزامنة بعض التسجيلات', 'سيُعاد المحاولة تلقائيًا لاحقًا', true);
+  }
+}
+
+/* ========================= زر الرجوع الحقيقي (موبايل/متصفح) ========================= */
+async function restoreFromHistory(historyState) {
+  const target = historyState || { view: 'view-home' };
+
+  stopScanner();
+  $all('.overlay.is-open').forEach(o => closeSheet(o.id));
+
+  switch (target.view) {
+
+    case 'view-activity':
+      if (!target.sheetId) { showView('view-home', 'back'); break; }
+      await openActivity(target.sheetId, { skipHistory: true, animateBack: true });
+      break;
+
+    case 'view-lecture':
+      if (!target.sheetId || !target.lectureColumn) { showView('view-home', 'back'); break; }
+      await openActivity(target.sheetId, { silent: true, skipHistory: true });
+      await openLecture(
+        { name: target.lectureName, column: target.lectureColumn },
+        { skipHistory: true, animateBack: true }
+      );
+      break;
+
+    case 'view-attendance':
+      if (!target.sheetId) { showView('view-home', 'back'); break; }
+      await openAttendance(target.sheetId, { skipHistory: true, animateBack: true });
+      break;
+
+    case 'view-scan':
+      if (!target.sheetId || !target.lectureColumn) { showView('view-home', 'back'); break; }
+      await openActivity(target.sheetId, { silent: true, skipHistory: true });
+      state.currentLecture = { name: target.lectureName, column: target.lectureColumn };
+      await openScan({ skipHistory: true, animateBack: true });
+      break;
+
+    case 'view-home':
+    default:
+      showView('view-home', 'back');
+      break;
+  }
+}
+
+window.addEventListener('popstate', (e) => {
+  restoreFromHistory(e.state);
+});
+
+if (!history.state) {
+  history.replaceState({ view: 'view-home' }, '', '#view-home');
+}
+
+/* ========================= بدء التشغيل ========================= */
+updateOfflineBanner();
+loadHome();
+syncPendingQueue();
+</script>
+
+<!-- مكتبة قراءة QR — تُحمَّل فقط عند وجود اتصال؛ لا تعمل بدونها الإضافة اليدوية فقط -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+<!-- مكتبة عرض الـPDF (pdf.js) — ترسم الشهادة كصورة داخل الصفحة نفسها،
+     تشتغل حتى فى المتصفحات/الويب فيوز اللي مفيهاش عارض PDF مدمج -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+</body>
+</html>
