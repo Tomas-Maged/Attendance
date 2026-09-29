@@ -743,7 +743,7 @@ function updateOfflineBanner() {
 (function initConnectivityRecovery() {
 
   const PROBE_URL    = 'https://www.gstatic.com/generate_204';
-  const PROBE_TIMEOUT_MS = 4000;   /* 4 ثوانٍ — لو GAS نفسه بطيء هنا مش مشكلة */
+  const PROBE_TIMEOUT_MS = 1500;   /* 1.5 ثانية — يكفي لفحص الاتصال ويقلل التأخير قبل المزامنة */
   const BACKOFF_BASE_MS  = 2000;   /* البداية: 2 ثانية */
   const MAX_RETRIES      = 5;      /* أقصى محاولات backoff */
 
@@ -1724,20 +1724,31 @@ async function handleQrDetected(qrData) {
     return; /* تكرار — لا نكمل المزامنة */
   }
 
+  /* الـ localId الدقيق للسجل الذي تم إضافته للطابور للتو */
+  const pendingLocalId = localResult.localId;
+
   /* ── مزامنة GAS في الخلفية ── (لا تحجب الكاميرا) */
   if (isOnline()) {
     /* لا await هنا — نطلق الطلب ونرجع فورًا */
     callServer('recordQrAttendance', sheetId, column, qrData)
       .then(result => {
-        /* لو GAS قال إنه مُسجَّل بالفعل، لا نُظهر رسالة إضافية
-           لأن الـ toast الناجح أُظهر بالفعل */
-        if (result && result.success) {
-          /* حدّث الـ snapshot بهدوء */
+        /* GAS أكّد النجاح أو أن السجل موجود بالفعل (مكرر):
+           في كلتا الحالتين نحذف السجل المعلّق بالـ localId الدقيق
+           ونحدّث البانر فوراً. لا نعتمد على slice(-1) أو أي منطق
+           يفترض ترتيب الطابور — نستخدم الـ localId المحدد مسبقاً. */
+        if (result && (result.success || result.alreadyAttended)) {
+          if (pendingLocalId) {
+            OfflineStore.removeFromQueue(pendingLocalId);
+            updateOfflineBanner();
+          }
+          /* حدّث الـ snapshot بهدوء بعد تأكيد GAS */
           refreshSnapshotSilently_(sheetId, column);
         }
+        /* لو GAS أرجع فشلاً من غير exception (حالة نادرة):
+           نتركه في الطابور للمزامنة الدفعية لاحقاً */
       })
       .catch(() => {
-        /* فشل الاتصال — الحضور محفوظ محلياً بالفعل،
+        /* فشل الاتصال — الحضور محفوظ محلياً في الطابور بالفعل،
            updateOfflineBanner ستُظهر عداد الـ queue */
         updateOfflineBanner();
       });
@@ -2051,7 +2062,7 @@ function recordOfflineAttendance(sheetId, lectureColumn, type, payload) {
       rowNumber: match.rowNumber, clientTimestamp
     });
 
-    return { success: true, name: match.name, count: match.count };
+    return { success: true, localId, name: match.name, count: match.count };
   }
 
   const newPerson = {
@@ -2076,7 +2087,7 @@ function recordOfflineAttendance(sheetId, lectureColumn, type, payload) {
     personId: newPersonId, clientTimestamp
   });
 
-  return { success: true, name: newPersonName, count: 1 };
+  return { success: true, localId, name: newPersonName, count: 1 };
 }
 
 async function refreshSnapshotSilently_(sheetId, lectureColumn) {
@@ -2086,6 +2097,29 @@ async function refreshSnapshotSilently_(sheetId, lectureColumn) {
     const activity = state.currentActivity && state.currentActivity.sheetId === sheetId
       ? state.currentActivity
       : (OfflineStore.getSnapshot(sheetId) || {}).activity;
+
+    /* بعد جلب اللقطة من السيرفر، نعيد تطبيق علامات PENDING_SYNC_LABEL
+       على السجلات التي لا تزال في الطابور لهذا النشاط.
+       هذا يضمن أن السجلات المعلّقة تظل مرئية كـ "بانتظار المزامنة"
+       في الواجهة ولا تختفي بسبب تحديث اللقطة من السيرفر. */
+    const pendingQueue = OfflineStore.getQueue().filter(
+      r => String(r.sheetId) === String(sheetId)
+    );
+    if (pendingQueue.length > 0) {
+      pendingQueue.forEach(r => {
+        const col = Number(r.lectureColumn);
+        const person = list.find(p =>
+          (r.rowNumber && p.rowNumber === r.rowNumber) ||
+          (r.qrData && p.id && r.qrData.startsWith(p.id + '--')) ||
+          (r.personName && p.name === r.personName)
+        );
+        if (person && (!person.cols || !person.cols[col])) {
+          person.cols = person.cols || {};
+          person.cols[col] = PENDING_SYNC_LABEL;
+        }
+      });
+    }
+
     OfflineStore.saveSnapshot(sheetId, { activity, people: list, snapshotAt: new Date().toISOString() });
   } catch (err) {}
 }
@@ -2143,6 +2177,27 @@ async function syncPendingQueue() {
       }
 
       const activity = (OfflineStore.getSnapshot(sheetId) || {}).activity;
+
+      /* بعد حذف السجلات المؤكّدة من الطابور، قد تبقى سجلات لم تتزامن بعد
+         (hadError أو ambiguous). نعيد تطبيق PENDING_SYNC_LABEL عليها في
+         اللقطة حتى تظل مرئية كـ "بانتظار المزامنة" في الواجهة. */
+      const remainingPending = OfflineStore.getQueue().filter(
+        r => String(r.sheetId) === String(sheetId) && Number(r.lectureColumn) === column
+      );
+      if (remainingPending.length > 0) {
+        remainingPending.forEach(r => {
+          const person = updatedList.find(p =>
+            (r.rowNumber && p.rowNumber === r.rowNumber) ||
+            (r.qrData && p.id && r.qrData.startsWith(p.id + '--')) ||
+            (r.personName && p.name === r.personName)
+          );
+          if (person) {
+            person.cols = person.cols || {};
+            if (!person.cols[column]) person.cols[column] = PENDING_SYNC_LABEL;
+          }
+        });
+      }
+
       OfflineStore.saveSnapshot(sheetId, { activity, people: updatedList, snapshotAt: new Date().toISOString() });
 
       // --- إصلاح 5ج: تحديث الشاشة الحالية مباشرةً من البيانات التي جلبناها
