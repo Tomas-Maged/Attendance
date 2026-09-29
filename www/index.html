@@ -48,6 +48,13 @@
         <input type="text" id="homeSearch" placeholder="ابحث عن كورس أو اجتماع">
       </div>
     </div>
+    <div id="ptr-home" class="ptr-indicator" aria-hidden="true">
+      <div class="ptr-indicator__inner">
+        <svg class="ptr-indicator__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14m0 0-5-5m5 5 5-5"/></svg>
+        <div class="ptr-indicator__spinner"></div>
+        <span class="ptr-indicator__label">اسحب للتحديث</span>
+      </div>
+    </div>
     <div class="filter-chips" id="homeFilters">
       <button class="chip is-active" data-filter="all">الكل</button>
       <button class="chip" data-filter="course">الكورسات</button>
@@ -131,6 +138,13 @@
         <input type="text" id="lectureSearch" placeholder="ابحث بالاسم">
       </div>
     </div>
+    <div id="ptr-lecture" class="ptr-indicator" aria-hidden="true">
+      <div class="ptr-indicator__inner">
+        <svg class="ptr-indicator__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14m0 0-5-5m5 5 5-5"/></svg>
+        <div class="ptr-indicator__spinner"></div>
+        <span class="ptr-indicator__label">اسحب للتحديث</span>
+      </div>
+    </div>
     <div class="filter-chips">
       <button class="chip is-active" data-lfilter="all">الكل</button>
       <button class="chip" data-lfilter="withId">لديهم ID</button>
@@ -175,6 +189,13 @@
       <div class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
         <input type="text" id="attendanceSearch" placeholder="ابحث بالاسم">
+      </div>
+    </div>
+    <div id="ptr-attendance" class="ptr-indicator" aria-hidden="true">
+      <div class="ptr-indicator__inner">
+        <svg class="ptr-indicator__arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14m0 0-5-5m5 5 5-5"/></svg>
+        <div class="ptr-indicator__spinner"></div>
+        <span class="ptr-indicator__label">اسحب للتحديث</span>
       </div>
     </div>
     <div class="filter-chips">
@@ -696,8 +717,105 @@ function updateOfflineBanner() {
   }
 }
 
-window.addEventListener('online', () => { updateOfflineBanner(); syncPendingQueue(); });
-window.addEventListener('offline', () => { updateOfflineBanner(); toast('انقطع الاتصال بالإنترنت', 'سيتم حفظ الحضور محليًا والمزامنة عند عودة النت', true); });
+/* =========================================================
+   كشف عودة الاتصال بالإنترنت بشكل موثوق
+   ─────────────────────────────────────────────────────────
+   المشكلة الأصلية:
+     navigator.onLine + window.online يُبلَّغ عنهما عندما تُشغَّل
+     واجهة الشبكة — قبل أن يكون الإنترنت فعلياً قابلاً للاستخدام.
+     على Android يمكن أن يكون الفارق 2–30 ثانية، وخلاله يفشل
+     callServer() وتبقى سجلات الـ queue محلياً إلى الأبد.
+
+   الحل:
+     1. عند حدث 'online' → نجري فحص وصول خفيف (connectivity probe).
+     2. لو الفحص نجح → syncPendingQueue() فوراً.
+     3. لو فشل (الشبكة موجودة لكن الإنترنت لم يستقر بعد):
+        → نعيد المحاولة بـ exponential backoff: 2s-4s-8s-16s-32s
+        → أقصى 5 محاولات (مجموع ~62 ثانية).
+     4. عند حدث 'offline' → إلغاء أي محاولة مجدولة.
+     5. حدث 'online' جديد أثناء الـ backoff → إعادة البدء من الصفر.
+
+   نقطة الفحص: https://www.gstatic.com/generate_204
+     - نفس النقطة التي يستخدمها Android نفسه لاكتشاف Captive Portal.
+     - تُرجع HTTP 204 بدون body — سريعة جداً ومتاحة دائماً.
+     - no-cors mode: لا نحتاج body، نحتاج فقط أن الطلب يصل.
+   ========================================================= */
+(function initConnectivityRecovery() {
+
+  const PROBE_URL    = 'https://www.gstatic.com/generate_204';
+  const PROBE_TIMEOUT_MS = 4000;   /* 4 ثوانٍ — لو GAS نفسه بطيء هنا مش مشكلة */
+  const BACKOFF_BASE_MS  = 2000;   /* البداية: 2 ثانية */
+  const MAX_RETRIES      = 5;      /* أقصى محاولات backoff */
+
+  let _retryTimer   = null;        /* معرّف setTimeout الحالي */
+  let _retryCount   = 0;           /* عداد المحاولات */
+  let _probing      = false;       /* يمنع فحصين متزامنين */
+
+  /* إلغاء أي جدولة backoff قائمة */
+  function _cancelRetry() {
+    if (_retryTimer !== null) {
+      clearTimeout(_retryTimer);
+      _retryTimer  = null;
+    }
+    _retryCount = 0;
+    _probing    = false;
+  }
+
+  /* فحص وصول خفيف — يُرجع true لو الإنترنت فعلياً قابل للاستخدام */
+  async function _probe() {
+    try {
+      const ctrl   = new AbortController();
+      const tId    = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
+      await fetch(PROBE_URL, { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: ctrl.signal });
+      clearTimeout(tId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /* المحاولة الرئيسية: فحص ثم مزامنة أو جدولة retry */
+  async function _trySync() {
+    if (_probing) return;
+    _probing = true;
+
+    /* تحقق سريع من navigator.onLine أولاً لتجنّب طلب fetch غير ضروري */
+    if (!navigator.onLine) { _cancelRetry(); return; }
+
+    const reachable = await _probe();
+    _probing = false;
+
+    if (!navigator.onLine) { _cancelRetry(); return; } /* تغيّر الحال أثناء الفحص */
+
+    if (reachable) {
+      /* الإنترنت جاهز — نزامن فوراً */
+      _cancelRetry();               /* إيقاف أي backoff مجدول */
+      updateOfflineBanner();
+      syncPendingQueue();
+    } else if (_retryCount < MAX_RETRIES) {
+      /* الشبكة موجودة لكن الإنترنت لم يستقر — نجدول retry بـ backoff */
+      const delay = BACKOFF_BASE_MS * Math.pow(2, _retryCount); /* 2s-4s-8s-16s-32s */
+      _retryCount++;
+      _retryTimer = setTimeout(_trySync, delay);
+    }
+    /* لو تجاوزنا MAX_RETRIES نتوقف هادئاً — المزامنة ستتم عند أي حدث online مستقبلي */
+  }
+
+  /* حدث 'online': بدء الكشف */
+  window.addEventListener('online', () => {
+    updateOfflineBanner();
+    _cancelRetry();   /* إلغاء أي backoff قديم وابدأ من جديد */
+    _trySync();
+  });
+
+  /* حدث 'offline': إيقاف كل شيء */
+  window.addEventListener('offline', () => {
+    _cancelRetry();
+    updateOfflineBanner();
+    toast('انقطع الاتصال بالإنترنت', 'سيتم حفظ الحضور محليًا والمزامنة عند عودة النت', true);
+  });
+
+})();
 
 /* ========================= الشاشة الرئيسية ========================= */
 async function loadHome() {
@@ -1401,8 +1519,20 @@ $('#openManualAddBtn').addEventListener('click', openManualAddSheet);
 /* =========================================================
    ── APK (CHANGE 2) ── شاشة السكان
    startScanner() له مسارين:
-   1. Capacitor → BarcodeScanner الأصلي (ملء الشاشة، كاميرا نظام Android)
+   1. Capacitor → BarcodeScanner.startScanning(options, callback) المستمر
+      ← كاميرا تفتح مرة واحدة وتبقى مفتوحة طول جلسة المسح بالكامل
+      ← كل QR جديد يستدعي الـ callback مباشرةً بدون إعادة تهيئة الكاميرا
+      ← التكرار يُمنع بـ pauseScanning/resumeScanning + _qrCooldownMap
    2. متصفح    → jsQR + getUserMedia (الأصلي، بدون تغيير)
+
+   ملاحظة تقنية مهمة (plugin v3.0.3):
+   ─────────────────────────────────────────────────────────
+   startScan()      → decodeSingle  → يدمّر الكاميرا بعد كل QR ← بطيء جداً
+   startScanning()  → decodeContinuous + keepAlive callback    ← صحيح
+   ─────────────────────────────────────────────────────────
+   الـ API الصحيح للمسح المستمر هو:
+     BarcodeScanner.startScanning(options, callbackFn)
+   الـ callback هو المعامل الثاني مباشرةً — ليس addListener.
    ========================================================= */
 async function openScan(options) {
   options = options || {};
@@ -1423,12 +1553,17 @@ async function openScan(options) {
 
 /* حالة المسح — تمنع تشغيل مسحين في نفس الوقت */
 let _scanActive = false;
+/* CallbackID المُعاد من startScanning (غير مستخدم حالياً ولكن نحفظه) */
+let _scanCallbackId = null;
 
 async function startScanner() {
   if (_scanActive) return;
   _scanActive = true;
 
-  /* ── APK path ── Capacitor BarcodeScanner */
+  /* ── APK path ── BarcodeScanner.startScanning(options, callback) ──
+     decodeContinuous: كاميرا مفتوحة طوال الجلسة.
+     كل QR مختلف يستدعي الـ callback مباشرةً على الـ JS thread.
+     الكاميرا لا تُوقَف ولا تُعاد تهيئتها بين المسحات. */
   if (IS_CAPACITOR) {
     try {
       const { BarcodeScanner } = Capacitor.Plugins;
@@ -1442,30 +1577,41 @@ async function startScanner() {
         return;
       }
 
-      /* نجعل WebView شفافًا حتى تظهر معاينة الكاميرا الأصلية خلفه */
+      /* الخلفية شفافة حتى تظهر الكاميرا الأصلية خلف WebView */
       document.body.classList.add('capacitor-scanning');
       BarcodeScanner.hideBackground();
 
-      /* حلقة مسح مستمرة: startScan() تنتهي عند أول QR واحد،
-         فنعيد تشغيلها بعد cooldown حتى يتمكن المستخدم من مسح أشخاص متعددين */
-      const scanLoop = async () => {
-        while (_scanActive) {
-          try {
-            const result = await BarcodeScanner.startScan();
-            if (result.hasContent) {
-              await handleQrDetected(result.content);
-              /* انتظر قصير قبل المسح التالي حتى تنتهي نغمة التأكيد */
-              await new Promise(r => setTimeout(r, 950));
-            }
-          } catch (scanErr) {
-            /* المستخدم أغلق الشاشة أو حدث خطأ — نوقف الحلقة */
-            _scanActive = false;
-          }
+      /* ── المسح المستمر ──
+         startScanning(options, callbackFn) → decodeContinuous في Java.
+         - الكاميرا تبقى مفتوحة بعد كل نتيجة (كـ keepAlive).
+         - Java تُطبّق dedup داخلياً (lastScanResult) لنفس الـ QR المتتالي.
+         - pauseScanning/resumeScanning تتحكم في نافذة الـ cooldown.
+         - targetedFormats: ['QR_CODE'] تُسرّع الـ decoder (QR فقط).
+      */
+      _scanCallbackId = await BarcodeScanner.startScanning(
+        { targetedFormats: ['QR_CODE'] },
+        (result, err) => {
+          if (!_scanActive) return;
+          if (err) return; /* تجاهل أخطاء الـ decoder (QR غير مقروء) */
+          if (!result || !result.hasContent) return;
+
+          /* 1. إيقاف مؤقت فوري (Java) — يمنع إعادة قراءة نفس الـ QR
+                قبل انتهاء معالجته. لا يُوقف الكاميرا ولا يُعيد تهيئتها. */
+          try { BarcodeScanner.pauseScanning(); } catch (e) {}
+
+          /* 2. معالجة QR: تسجيل محلي فوري + صوت + toast + مزامنة خلفية.
+                handleQrDetected لا تُوقف الكاميرا — فقط تُسجّل وتُبلّغ. */
+          handleQrDetected(result.content).finally(() => {
+            /* 3. بعد انتهاء المعالجة (أو بعد 150ms على الأقل)، استئناف الكاميرا
+                  لاستقبال الشخص التالي. */
+            setTimeout(() => {
+              if (_scanActive) {
+                try { BarcodeScanner.resumeScanning(); } catch (e) {}
+              }
+            }, 150);
+          });
         }
-        /* استعادة الواجهة بعد انتهاء الحلقة */
-        _restoreFromCapacitorScan_();
-      };
-      scanLoop();
+      );
 
     } catch (err) {
       _scanActive = false;
@@ -1513,7 +1659,9 @@ function _restoreFromCapacitorScan_() {
 
 function stopScanner() {
   _scanActive = false;
+  _scanCallbackId = null;
   if (IS_CAPACITOR) {
+    /* stopScan() يستدعي destroy() داخلياً: يوقف الكاميرا ويزيل BarcodeView */
     try { Capacitor.Plugins.BarcodeScanner.stopScan(); } catch (e) {}
     _restoreFromCapacitorScan_();
     return;
@@ -1524,46 +1672,76 @@ function stopScanner() {
   if (state.qrStream) { state.qrStream.getTracks().forEach(t => t.stop()); state.qrStream = null; }
 }
 
-/* ========================= معالجة QR — بدون تغيير ========================= */
-let qrCooldown = false;
+/* ========================= معالجة QR ========================= */
+/*
+ * حماية من التكرار بمستويين:
+ * 1. الطبقة الأصلية (Java): pauseScanning + lastScanResult  → يمنع تكرار نفس الـ QR
+ * 2. طبقة JS: _qrCooldownMap → ضمان إضافي لكل محتوى QR على حدة
+ *    ← Map لا boolean: حتى لا يُعطَّل QR مختلف بسبب cooldown QR آخر
+ *    ← 1500ms لنفس الـ QR فقط
+ *
+ * تسلسل المعالجة:
+ *   QR detected
+ *   ↓ تحقق محلي (QR صالح؟ تكرار؟)
+ *   ↓ تسجيل محلي فوري (OfflineStore / snapshot)
+ *   ↓ صوت فوري
+ *   ↓ toast فوري
+ *   ↓ [الكاميرا مستمرة]
+ *   ↓ مزامنة GAS في الخلفية (لا تحجب الكاميرا)
+ */
+const _qrCooldownMap = new Map();
+const QR_COOLDOWN_MS = 1500;
+
 async function handleQrDetected(qrData) {
-  if (qrCooldown) return;
-  qrCooldown = true;
-  setTimeout(() => (qrCooldown = false), 900);
+  /* ── حماية JS من التكرار ── */
+  const now = Date.now();
+  const lastTime = _qrCooldownMap.get(qrData) || 0;
+  if (now - lastTime < QR_COOLDOWN_MS) return;
+  _qrCooldownMap.set(qrData, now);
 
   const sheetId = state.currentActivity.sheetId;
   const column = state.currentLecture.column;
 
-  if (!isOnline()) {
-    try {
-      const result = recordOfflineAttendance(sheetId, column, 'qr', { qrData });
-      playSound(result.success);
-      if (result.success) toast('✓ تم الحفظ محليًا (بانتظار المزامنة)', result.name, false);
-      else toast(result.message, '', true);
-    } catch (err) {
-      playSound(false);
-      toast(err.message || 'تعذّر تسجيل الحضور محليًا', '', true);
-    }
-    updateOfflineBanner();
+  /* ── تسجيل محلي فوري + صوت + toast ──
+     نسجّل دائمًا محلياً أولاً لأنه لا يحتاج شبكة.
+     ثم نزامن مع GAS في الخلفية إذا كان الاتصال متاحاً. */
+  let localResult;
+  try {
+    localResult = recordOfflineAttendance(sheetId, column, 'qr', { qrData });
+  } catch (localErr) {
+    /* OfflineStore غير جاهز (لم تُفتح نسخة محلية بعد) */
+    playSound(false);
+    toast(localErr.message || 'تعذّر تسجيل الحضور', '', true);
     return;
   }
 
-  try {
-    const result = await callServer('recordQrAttendance', sheetId, column, qrData);
-    playSound(result.success);
-    if (result.success) toast('✓ تم تسجيل الحضور', result.name, false);
-    else toast('تم إضافة ' + result.name + ' بالفعل', '', true);
-    refreshSnapshotSilently_(sheetId, column);
-  } catch (err) {
-    try {
-      const result = recordOfflineAttendance(sheetId, column, 'qr', { qrData });
-      playSound(result.success);
-      if (result.success) toast('✓ تم الحفظ محليًا (بانتظار المزامنة)', result.name, false);
-      else toast(result.message, '', true);
-    } catch (offlineErr) {
-      playSound(false);
-      toast('تعذّر قراءة الرمز', '', true);
-    }
+  /* صوت + toast فوري — قبل أي انتظار للشبكة */
+  playSound(localResult.success);
+  if (localResult.success) {
+    toast('✓ ' + localResult.name, 'تم تسجيل الحضور', false);
+  } else {
+    toast(localResult.message || 'تم إضافته بالفعل', '', true);
+    return; /* تكرار — لا نكمل المزامنة */
+  }
+
+  /* ── مزامنة GAS في الخلفية ── (لا تحجب الكاميرا) */
+  if (isOnline()) {
+    /* لا await هنا — نطلق الطلب ونرجع فورًا */
+    callServer('recordQrAttendance', sheetId, column, qrData)
+      .then(result => {
+        /* لو GAS قال إنه مُسجَّل بالفعل، لا نُظهر رسالة إضافية
+           لأن الـ toast الناجح أُظهر بالفعل */
+        if (result && result.success) {
+          /* حدّث الـ snapshot بهدوء */
+          refreshSnapshotSilently_(sheetId, column);
+        }
+      })
+      .catch(() => {
+        /* فشل الاتصال — الحضور محفوظ محلياً بالفعل،
+           updateOfflineBanner ستُظهر عداد الـ queue */
+        updateOfflineBanner();
+      });
+  } else {
     updateOfflineBanner();
   }
 }
@@ -2051,6 +2229,195 @@ window.addEventListener('popstate', (e) => {
 if (!history.state) {
   history.replaceState({ view: 'view-home' }, '', '#view-home');
 }
+
+/* ========================= Pull-to-Refresh =========================
+ * سحب للأسفل لتحديث البيانات — ثلاث شاشات: الرئيسية، المحاضرة، كشف الحضور.
+ *
+ * المنطق:
+ *  1. الاستماع لـ touchstart/touchmove/touchend على عنصر .view نفسه
+ *     (هو الحاوية القابلة للتمرير — overflow-y:auto).
+ *  2. يُفعَّل فقط عندما scrollTop === 0 والمستخدم يسحب للأسفل.
+ *  3. يُظهر مؤشر بصري (ptr-indicator) يتمدد بالسحب.
+ *  4. عند الإطلاق فوق عتبة 72px: يُنفّذ الـ refresh ويُظهر spinner.
+ *  5. منع طلبات متزامنة: لو تحديث جارٍ، يُتجاهل أي سحب جديد.
+ *  6. لا يعمل أوفلاين — يُظهر toast ويُغلق.
+ * ================================================================= */
+(function initPullToRefresh() {
+
+  const THRESHOLD      = 72;   /* المسافة بالـpx لتفعيل الإطلاق */
+  const MAX_PULL       = 100;  /* أقصى مسافة سحب مرئية */
+  const ANIM_DURATION  = 220;  /* ms — مدة إخفاء المؤشر بعد التحديث */
+
+  /**
+   * يربط سلوك Pull-to-Refresh بشاشة معينة.
+   * @param {string}   viewId     — id الـ <section class="view">
+   * @param {string}   indId      — id عنصر .ptr-indicator داخل الشاشة
+   * @param {Function} refreshFn  — دالة async تُنفّذ التحديث الفعلي
+   */
+  function setupPullToRefresh(viewId, indId, refreshFn) {
+    const view = document.getElementById(viewId);
+    const ind  = document.getElementById(indId);
+    if (!view || !ind) return;
+
+    const label   = ind.querySelector('.ptr-indicator__label');
+    let startY    = 0;
+    let pulling   = false;
+    let isLoading = false;
+
+    function setLabel(text) { if (label) label.textContent = text; }
+
+    function resetIndicator() {
+      ind.style.height = '';
+      ind.classList.remove('ptr-pulling', 'ptr-ready', 'ptr-loading');
+    }
+
+    view.addEventListener('touchstart', (e) => {
+      if (isLoading) return;
+      /* يبدأ فقط عند قمة القائمة */
+      if (view.scrollTop > 0) return;
+      startY  = e.touches[0].clientY;
+      pulling = false;
+    }, { passive: true });
+
+    view.addEventListener('touchmove', (e) => {
+      if (isLoading) return;
+      if (!startY) return;
+
+      const delta = e.touches[0].clientY - startY;
+      if (delta <= 0) { pulling = false; return; }
+
+      /* أول تحرك للأسفل — تأكّد إن الشاشة لسه في الأعلى */
+      if (!pulling) {
+        if (view.scrollTop > 0) { startY = 0; return; }
+        pulling = true;
+        ind.classList.add('ptr-pulling');
+        setLabel('اسحب للتحديث');
+      }
+
+      /* حساب الارتفاع بمقاومة تدريجية (rubber-band) */
+      const pull   = Math.min(delta * 0.55, MAX_PULL);
+      ind.style.height = pull + 'px';
+
+      if (pull >= THRESHOLD) {
+        ind.classList.add('ptr-ready');
+        setLabel('أطلق للتحديث');
+      } else {
+        ind.classList.remove('ptr-ready');
+        setLabel('اسحب للتحديث');
+      }
+    }, { passive: true });
+
+    view.addEventListener('touchend', async () => {
+      if (!pulling) return;
+      pulling = false;
+
+      const wasReady = ind.classList.contains('ptr-ready');
+      if (!wasReady) {
+        /* لم يصل للعتبة — أغلق المؤشر */
+        resetIndicator();
+        startY = 0;
+        return;
+      }
+
+      /* وصل للعتبة وأُطلق */
+      if (!isOnline()) {
+        toast('لا يوجد اتصال بالإنترنت', '', true);
+        resetIndicator();
+        startY = 0;
+        return;
+      }
+
+      /* بدء التحميل */
+      isLoading = true;
+      ind.style.height = '56px';           /* ثبّت الارتفاع أثناء التحميل */
+      ind.classList.remove('ptr-ready', 'ptr-pulling');
+      ind.classList.add('ptr-loading');
+      setLabel('جاري التحديث...');
+      startY = 0;
+
+      try {
+        await refreshFn();
+      } catch (e) {
+        /* refreshFn تعالج أخطاءها داخلياً — لا نفعل شيئًا هنا */
+      }
+
+      /* انتهى — أخفِ المؤشر بأنيميشن ناعم */
+      ind.classList.remove('ptr-loading');
+      ind.style.transition = 'height ' + ANIM_DURATION + 'ms ease';
+      ind.style.height = '0';
+      setTimeout(() => {
+        resetIndicator();
+        ind.style.transition = '';
+        isLoading = false;
+      }, ANIM_DURATION);
+    });
+  }
+
+  /* ── دوال التحديث لكل شاشة ── */
+
+  /* الشاشة الرئيسية */
+  async function refreshHome() {
+    try {
+      const fresh = await callServer('getActivities');
+      OfflineStore.saveActivities(fresh);
+      state.activities = fresh;
+      renderHome();
+    } catch (err) {
+      toast('تعذّر التحديث', '', true);
+    }
+  }
+
+  /* شاشة كشف الحضور الكامل */
+  async function refreshAttendance() {
+    const sheetId = state.currentActivity && state.currentActivity.sheetId;
+    if (!sheetId) return;
+    try {
+      const [fresh, list] = await Promise.all([
+        callServer('getActivity', sheetId),
+        callServer('getAttendanceList', sheetId, null)
+      ]);
+      state.currentActivity = fresh;
+      $('#attendanceSub').textContent = fresh.name || '';
+      state.fullAttendance = list;
+      /* حفظ snapshot مع الإبقاء على سجلات الـ queue المحلية */
+      OfflineStore.saveSnapshot(sheetId, {
+        activity: fresh,
+        people: list,
+        snapshotAt: new Date().toISOString()
+      });
+      renderFullAttendance();
+    } catch (err) {
+      toast('تعذّر التحديث', '', true);
+    }
+  }
+
+  /* شاشة المحاضرة */
+  async function refreshLecture() {
+    const a = state.currentActivity;
+    const l = state.currentLecture;
+    if (!a || !l) return;
+    try {
+      const list = await callServer('getAttendanceList', a.sheetId, l.column);
+      OfflineStore.saveSnapshot(a.sheetId, {
+        activity: a,
+        people: list,
+        snapshotAt: new Date().toISOString()
+      });
+      state.lectureAttendance = list.filter(
+        p => p.attendedThisLecture || (p.cols && p.cols[l.column])
+      );
+      renderLectureList();
+    } catch (err) {
+      toast('تعذّر التحديث', '', true);
+    }
+  }
+
+  /* ربط الشاشات الثلاث */
+  setupPullToRefresh('view-home',       'ptr-home',       refreshHome);
+  setupPullToRefresh('view-lecture',    'ptr-lecture',    refreshLecture);
+  setupPullToRefresh('view-attendance', 'ptr-attendance', refreshAttendance);
+
+})();
 
 /* ========================= بدء التشغيل ========================= */
 updateOfflineBanner();

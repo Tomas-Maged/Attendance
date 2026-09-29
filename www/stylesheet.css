@@ -543,7 +543,69 @@
   }
   .person-card__cert svg { width: 14px; height: 14px; }
 
-  /* ---------- شاشة السكان ---------- */
+  /* ---------- Pull-to-Refresh ─────────────────────────────────────────
+     مؤشر تحديث بالسحب للأسفل — يظهر أسفل الـ topbar مباشرةً.
+     يعمل فقط عندما تكون الشاشة في أعلى مستوى التمرير (scrollTop === 0).
+     ───────────────────────────────────────────────────────────────────── */
+  .ptr-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* ارتفاع صفر افتراضياً — يتمدد أثناء السحب */
+    height: 0;
+    overflow: hidden;
+    transition: height .18s ease;
+    background: var(--bg);
+    /* يجب أن يكون فوق الـ filter-chips الـ sticky */
+    position: relative;
+    z-index: 11;
+  }
+  /* حالة السحب الجاري (المستخدم يسحب) */
+  .ptr-indicator.ptr-pulling {
+    height: 56px;
+  }
+  /* حالة التحميل (تم إطلاق السحب — الطلب جارٍ) */
+  .ptr-indicator.ptr-loading {
+    height: 56px;
+  }
+  .ptr-indicator__inner {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity .15s ease, transform .15s ease;
+  }
+  .ptr-indicator.ptr-pulling .ptr-indicator__inner,
+  .ptr-indicator.ptr-loading  .ptr-indicator__inner {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  /* سهم السحب — يدور عند الوصول لعتبة الإطلاق */
+  .ptr-indicator__arrow {
+    width: 20px; height: 20px;
+    flex-shrink: 0;
+    color: var(--primary);
+    transition: transform .2s ease;
+  }
+  .ptr-indicator.ptr-ready .ptr-indicator__arrow {
+    transform: rotate(180deg);
+  }
+  /* سبينر التحميل */
+  .ptr-indicator__spinner {
+    display: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2.5px solid var(--border);
+    border-top-color: var(--primary);
+    animation: spin .7s linear infinite;
+    flex-shrink: 0;
+  }
+  .ptr-indicator.ptr-loading .ptr-indicator__arrow  { display: none; }
+  .ptr-indicator.ptr-loading .ptr-indicator__spinner { display: block; }
   .scan-view { align-items: center; padding-top: 24px; gap: 22px; }
 
   /* في وضع Capacitor، الكاميرا الأصلية تعمل خلف WebView.
