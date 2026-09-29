@@ -2273,8 +2273,8 @@ if (!history.state) {
 
     view.addEventListener('touchstart', (e) => {
       if (isLoading) return;
-      /* يبدأ فقط عند قمة القائمة */
-      if (view.scrollTop > 0) return;
+      /* يبدأ فقط عند قمة القائمة وعندما لا يكون المس على الـ topbar مباشرةً */
+      if (view.scrollTop > 0) { startY = 0; return; }
       startY  = e.touches[0].clientY;
       pulling = false;
     }, { passive: true });
@@ -2284,7 +2284,12 @@ if (!history.state) {
       if (!startY) return;
 
       const delta = e.touches[0].clientY - startY;
-      if (delta <= 0) { pulling = false; return; }
+      if (delta <= 0) {
+        /* حركة للأعلى أو جانبية — إلغاء أي سحب وإعادة تعيين المؤشر */
+        if (pulling) { pulling = false; resetIndicator(); }
+        startY = 0;
+        return;
+      }
 
       /* أول تحرك للأسفل — تأكّد إن الشاشة لسه في الأعلى */
       if (!pulling) {
@@ -2308,14 +2313,16 @@ if (!history.state) {
     }, { passive: true });
 
     view.addEventListener('touchend', async () => {
-      if (!pulling) return;
-      pulling = false;
+      const wasPulling = pulling;
+      pulling  = false;
+      startY   = 0;       /* ← دائماً نُعيد تعيين startY عند انتهاء اللمس */
+
+      if (!wasPulling) return;
 
       const wasReady = ind.classList.contains('ptr-ready');
       if (!wasReady) {
         /* لم يصل للعتبة — أغلق المؤشر */
         resetIndicator();
-        startY = 0;
         return;
       }
 
@@ -2323,7 +2330,6 @@ if (!history.state) {
       if (!isOnline()) {
         toast('لا يوجد اتصال بالإنترنت', '', true);
         resetIndicator();
-        startY = 0;
         return;
       }
 
@@ -2333,7 +2339,6 @@ if (!history.state) {
       ind.classList.remove('ptr-ready', 'ptr-pulling');
       ind.classList.add('ptr-loading');
       setLabel('جاري التحديث...');
-      startY = 0;
 
       try {
         await refreshFn();
