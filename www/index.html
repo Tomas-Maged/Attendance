@@ -2294,6 +2294,15 @@ if (!history.state) {
       /* أول تحرك للأسفل — تأكّد إن الشاشة لسه في الأعلى */
       if (!pulling) {
         if (view.scrollTop > 0) { startY = 0; return; }
+        /* ── الإصلاح الجوهري ──
+           لا نُفعّل الـ PTR بصريًا (تغيير DOM / ارتفاع) حتى يتجاوز السحب
+           عتبة دنيا (8px). أي حركة أقل من ذلك تبقى "نقرة" في نظر
+           المتصفح ولا يجب أن تُصنَّف كـ drag حتى لا يُلغي المتصفح
+           تركيبة click المعتمدة على touchend.
+           بدون هذا: كل نقرة على زر في أعلى الشاشة (scrollTop=0) كانت
+           تُفعّل pulling=true لأي حركة 1px+، فيُدرج المتصفح التسلسل
+           كـ "سحب" ويوقف تركيب click فوق الزر.         */
+        if (delta < 8) return;   /* ← أقل من 8px: تجاهل — ربما نقرة */
         pulling = true;
         ind.classList.add('ptr-pulling');
         setLabel('اسحب للتحديث');
@@ -2356,6 +2365,16 @@ if (!history.state) {
         isLoading = false;
       }, ANIM_DURATION);
     });
+
+    /* touchcancel: اللمس أُلغي من النظام (مكالمة واردة، إشعار، إلخ) —
+       نُعيد تعيين كل الحالة فورًا لأن touchend لن يأتي.
+       بدون هذا: startY تبقى محفوظة من اللمس الملغي، والنقرة التالية
+       على الشاشة تحسب delta منها وقد تُفعّل PTR خطأً. */
+    view.addEventListener('touchcancel', () => {
+      if (pulling) resetIndicator();
+      pulling = false;
+      startY  = 0;
+    }, { passive: true });
   }
 
   /* ── دوال التحديث لكل شاشة ── */
