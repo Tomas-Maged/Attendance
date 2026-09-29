@@ -718,54 +718,45 @@ function updateOfflineBanner() {
 }
 
 /* =========================================================
-   كشف عودة الاتصال بالإنترنت بشكل موثوق
+   كشف عودة الاتصال بالإنترنت — نسخة محسّنة لـ Android/Capacitor
    ─────────────────────────────────────────────────────────
-   المشكلة الأصلية:
-     navigator.onLine + window.online يُبلَّغ عنهما عندما تُشغَّل
-     واجهة الشبكة — قبل أن يكون الإنترنت فعلياً قابلاً للاستخدام.
-     على Android يمكن أن يكون الفارق 2–30 ثانية، وخلاله يفشل
-     callServer() وتبقى سجلات الـ queue محلياً إلى الأبد.
+   المشكلات الأصلية:
+     1. navigator.onLine على Android WebView قد يظل false أو يتأخر
+        حتى بعد عودة الإنترنت فعلياً — لذا لا يمكن الاعتماد عليه وحده.
+     2. بعد MAX_RETRIES كان التطبيق يتوقف تماماً وينتظر حدث online
+        جديد — وهو قد لا يصل أبداً على بعض أجهزة Android.
 
-   الحل:
-     1. عند حدث 'online' → نجري فحص وصول خفيف (connectivity probe).
-     2. لو الفحص نجح → syncPendingQueue() فوراً.
-     3. لو فشل (الشبكة موجودة لكن الإنترنت لم يستقر بعد):
-        → نعيد المحاولة بـ exponential backoff: 2s-4s-8s-16s-32s
-        → أقصى 5 محاولات (مجموع ~62 ثانية).
-     4. عند حدث 'offline' → إلغاء أي محاولة مجدولة.
-     5. حدث 'online' جديد أثناء الـ backoff → إعادة البدء من الصفر.
+   الحل المحسّن (أربعة مستويات):
+     1. حدث 'online' / 'offline' → يُطلق فحصاً فورياً (كما كان).
+     2. دالة _trySync() تعمل بالـ probe دائماً بغض النظر عن
+        navigator.onLine (لا bail-out على !navigator.onLine بعد الآن).
+     3. فاحص دوري خفيف (_pendingPoller): يعمل كل POLL_INTERVAL_MS
+        فقط عندما يوجد سجلات معلّقة في الطابور، ويتوقف تلقائياً
+        عند إفراغ الطابور.
+     4. visibilitychange: عند رجوع التطبيق للمقدمة بعد أن كان
+        في الخلفية → يُطلق فحصاً فورياً لو في طابور معلّق.
 
    نقطة الفحص: https://www.gstatic.com/generate_204
-     - نفس النقطة التي يستخدمها Android نفسه لاكتشاف Captive Portal.
-     - تُرجع HTTP 204 بدون body — سريعة جداً ومتاحة دائماً.
-     - no-cors mode: لا نحتاج body، نحتاج فقط أن الطلب يصل.
+     نفس النقطة التي يستخدمها Android لاكتشاف Captive Portal.
    ========================================================= */
 (function initConnectivityRecovery() {
 
-  const PROBE_URL    = 'https://www.gstatic.com/generate_204';
-  const PROBE_TIMEOUT_MS = 1500;   /* 1.5 ثانية — يكفي لفحص الاتصال ويقلل التأخير قبل المزامنة */
-  const BACKOFF_BASE_MS  = 2000;   /* البداية: 2 ثانية */
-  const MAX_RETRIES      = 5;      /* أقصى محاولات backoff */
+  const PROBE_URL        = 'https://www.gstatic.com/generate_204';
+  const PROBE_TIMEOUT_MS = 1500;   /* 1.5 ثانية */
+  const BACKOFF_BASE_MS  = 2000;   /* أساس الـ backoff: 2 ثانية */
+  const MAX_RETRIES      = 5;      /* أقصى محاولات backoff بعد حدث online */
+  const POLL_INTERVAL_MS = 8000;   /* فحص دوري كل 8 ثوانٍ عند وجود طابور */
 
-  let _retryTimer   = null;        /* معرّف setTimeout الحالي */
-  let _retryCount   = 0;           /* عداد المحاولات */
-  let _probing      = false;       /* يمنع فحصين متزامنين */
+  let _retryTimer   = null;   /* setTimeout للـ backoff */
+  let _pollTimer    = null;   /* setInterval للـ poller */
+  let _probing      = false;  /* يمنع فحصين متزامنين */
+  let _retryCount   = 0;
 
-  /* إلغاء أي جدولة backoff قائمة */
-  function _cancelRetry() {
-    if (_retryTimer !== null) {
-      clearTimeout(_retryTimer);
-      _retryTimer  = null;
-    }
-    _retryCount = 0;
-    _probing    = false;
-  }
-
-  /* فحص وصول خفيف — يُرجع true لو الإنترنت فعلياً قابل للاستخدام */
+  /* ── فحص وصول خفيف ── */
   async function _probe() {
     try {
-      const ctrl   = new AbortController();
-      const tId    = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
+      const ctrl = new AbortController();
+      const tId  = setTimeout(() => ctrl.abort(), PROBE_TIMEOUT_MS);
       await fetch(PROBE_URL, { method: 'HEAD', mode: 'no-cors', cache: 'no-store', signal: ctrl.signal });
       clearTimeout(tId);
       return true;
@@ -774,46 +765,104 @@ function updateOfflineBanner() {
     }
   }
 
-  /* المحاولة الرئيسية: فحص ثم مزامنة أو جدولة retry */
+  /* ── إلغاء الـ backoff (لا يلمس الـ poller) ── */
+  function _cancelRetry() {
+    if (_retryTimer !== null) { clearTimeout(_retryTimer); _retryTimer = null; }
+    _retryCount = 0;
+    _probing    = false;
+  }
+
+  /* ── تشغيل الـ poller الدوري ──
+     يعمل فقط عندما يوجد سجلات في الطابور.
+     يتوقف تلقائياً عند إفراغ الطابور. */
+  function _startPoller() {
+    if (_pollTimer !== null) return; /* يعمل بالفعل */
+    _pollTimer = setInterval(() => {
+      /* إذا فَرَغ الطابور أو جارٍ sync حالياً، أوقف الـ poller */
+      if (OfflineStore.getQueue().length === 0) {
+        _stopPoller();
+        return;
+      }
+      if (isSyncingQueue) return; /* sync جارٍ، سينتهي وحده */
+      /* شغّل _trySync بدون أن يتداخل مع الـ backoff */
+      _trySync();
+    }, POLL_INTERVAL_MS);
+  }
+
+  function _stopPoller() {
+    if (_pollTimer !== null) { clearInterval(_pollTimer); _pollTimer = null; }
+  }
+
+  /* ── المحاولة الرئيسية ──
+     لا يعتمد على navigator.onLine كشرط مانع.
+     navigator.onLine يُستخدم فقط كتسريع: لو true ومعروف إننا online
+     و isSyncingQueue جارٍ، نتجنب فحصاً مكرراً. */
   async function _trySync() {
     if (_probing) return;
+    if (isSyncingQueue) return; /* حماية مضاعفة من الـ isSyncingQueue */
     _probing = true;
-
-    /* تحقق سريع من navigator.onLine أولاً لتجنّب طلب fetch غير ضروري */
-    if (!navigator.onLine) { _cancelRetry(); return; }
 
     const reachable = await _probe();
     _probing = false;
 
-    if (!navigator.onLine) { _cancelRetry(); return; } /* تغيّر الحال أثناء الفحص */
-
     if (reachable) {
-      /* الإنترنت جاهز — نزامن فوراً */
-      _cancelRetry();               /* إيقاف أي backoff مجدول */
+      _cancelRetry(); /* إيقاف أي backoff مجدول */
       updateOfflineBanner();
-      syncPendingQueue();
+      syncPendingQueue(); /* isSyncingQueue يحمي من التكرار داخلياً */
     } else if (_retryCount < MAX_RETRIES) {
-      /* الشبكة موجودة لكن الإنترنت لم يستقر — نجدول retry بـ backoff */
-      const delay = BACKOFF_BASE_MS * Math.pow(2, _retryCount); /* 2s-4s-8s-16s-32s */
+      /* الشبكة موجودة لكن الإنترنت لم يستقر */
+      const delay = BACKOFF_BASE_MS * Math.pow(2, _retryCount);
       _retryCount++;
       _retryTimer = setTimeout(_trySync, delay);
+      /* ملاحظة: الـ poller مستمر بشكل مستقل — MAX_RETRIES للـ backoff
+         فقط، وليس للـ poller الذي يستمر ما دام الطابور ممتلئاً */
     }
-    /* لو تجاوزنا MAX_RETRIES نتوقف هادئاً — المزامنة ستتم عند أي حدث online مستقبلي */
+    /* بعد MAX_RETRIES: الـ backoff يتوقف لكن الـ poller يكمل */
   }
 
-  /* حدث 'online': بدء الكشف */
+  /* ── حدث 'online' ── */
   window.addEventListener('online', () => {
     updateOfflineBanner();
-    _cancelRetry();   /* إلغاء أي backoff قديم وابدأ من جديد */
-    _trySync();
+    _cancelRetry();
+    /* لو يوجد طابور معلّق، شغّل probe فوري + تأكد أن الـ poller يعمل */
+    if (OfflineStore.getQueue().length > 0) {
+      _startPoller();
+      _trySync();
+    }
   });
 
-  /* حدث 'offline': إيقاف كل شيء */
+  /* ── حدث 'offline' ── */
   window.addEventListener('offline', () => {
     _cancelRetry();
+    /* لا نوقف الـ poller: قد يكتشف عودة الاتصال قبل حدث 'online' */
     updateOfflineBanner();
     toast('انقطع الاتصال بالإنترنت', 'سيتم حفظ الحضور محليًا والمزامنة عند عودة النت', true);
   });
+
+  /* ── visibilitychange: رجوع التطبيق للمقدمة ── */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (OfflineStore.getQueue().length === 0) return;
+    if (isSyncingQueue) return;
+    /* التطبيق عاد للمقدمة ويوجد سجلات معلّقة — probe فوري */
+    _trySync();
+  });
+
+  /* ── تشغيل عند الـ startup: إذا كان هناك طابور من الجلسة السابقة ── */
+  /* نستخدم setTimeout صغير حتى تنتهي تهيئة باقي الكود أولاً */
+  setTimeout(() => {
+    if (OfflineStore.getQueue().length > 0) {
+      _startPoller();
+      /* حاول sync فوري عند البداية إذا يبدو الاتصال متاحاً */
+      _trySync();
+    }
+  }, 500);
+
+  /* ── تصدير _startPoller للاستخدام من syncPendingQueue ──
+     syncPendingQueue يستدعي _notifyPendingQueueChanged() بعد كل
+     إضافة لطابور جديد أو عند الانتهاء من sync بنجاح */
+  window._connectivityStartPoller = _startPoller;
+  window._connectivityStopPoller  = _stopPoller;
 
 })();
 
@@ -1958,6 +2007,11 @@ const OfflineStore = {
     const q = this.getQueue();
     q.push(record);
     this.setQueue(q);
+    /* نُشغّل الـ poller فور إضافة سجل جديد للطابور —
+       هذا يضمن بدء الفحص الدوري حتى لو لم يصل حدث 'online' */
+    if (typeof window._connectivityStartPoller === 'function') {
+      window._connectivityStartPoller();
+    }
   },
   removeFromQueue(localId) {
     this.setQueue(this.getQueue().filter(r => r.localId !== localId));
@@ -2226,6 +2280,14 @@ async function syncPendingQueue() {
 
   isSyncingQueue = false;
   updateOfflineBanner();
+
+  /* الطابور فرَغ تماماً → أوقف الـ poller */
+  if (OfflineStore.getQueue().length === 0) {
+    if (typeof window._connectivityStopPoller === 'function') window._connectivityStopPoller();
+  } else {
+    /* بقيت سجلات (ambiguous/error) → تأكد أن الـ poller يعمل */
+    if (typeof window._connectivityStartPoller === 'function') window._connectivityStartPoller();
+  }
 
   if (syncedCount > 0) {
     toast('تمت مزامنة الحضور المحفوظ محليًا', syncedCount + ' تسجيل', false);
