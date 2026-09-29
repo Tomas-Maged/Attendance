@@ -163,7 +163,7 @@
     color: var(--text-muted);
     display: flex; align-items: center; justify-content: center;
   }
-  .view-toggle button:first-child { border-left: 1px solid var(--border); }
+  .view-toggle button:first-child { border-inline-start: 1px solid var(--border); }
   .view-toggle button.is-active { background: var(--primary-soft); color: var(--primary); }
   .view-toggle svg { width: 16px; height: 16px; }
 
@@ -223,10 +223,20 @@
   }
 
   .filter-chips {
-    display: flex; gap: 8px; padding: 10px 16px 4px;
+    display: flex; gap: 8px; padding: 10px 16px 10px;
     overflow-x: auto;
     align-items: center;
+    /* sticky: يبقى ثابتًا أسفل الـ topbar عند التمرير حتى لا تتداخل الكروت معه */
+    position: sticky;
+    top: calc(47px + env(safe-area-inset-top, 0px));
+    z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    /* منع ظهور scrollbar أفقي على iOS */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
+  .filter-chips::-webkit-scrollbar { display: none; }
   .filter-chips__spacer { flex: 1; }
 
   .chip {
@@ -248,7 +258,7 @@
 
   .list {
     display: flex; flex-direction: column; gap: 12px;
-    padding: 14px 16px 110px;
+    padding: 20px 16px 110px;
   }
 
   /* وضع الشبكة (اختياري، بيفعّله المستخدم بنفسه من زر تبديل العرض) —
@@ -257,7 +267,7 @@
      الحضور) لأنه بيتطبّق على كل عنصر بكلاس .list بدون تخصيص */
   .list.is-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     align-items: start;
   }
   .list.is-grid .activity-card__lectures { grid-column: 1 / -1; }
@@ -535,6 +545,32 @@
 
   /* ---------- شاشة السكان ---------- */
   .scan-view { align-items: center; padding-top: 24px; gap: 22px; }
+
+  /* في وضع Capacitor، الكاميرا الأصلية تعمل خلف WebView.
+     نجعل الـ WebView كله شفافًا عدا عناصر شاشة السكان التي تبقى مرئية. */
+  body.capacitor-scanning {
+    background: transparent !important;
+  }
+  body.capacitor-scanning #app {
+    background: transparent !important;
+  }
+  body.capacitor-scanning .view.is-active {
+    background: transparent !important;
+  }
+  /* عناصر شاشة السكان التي تبقى مرئية فوق الكاميرا */
+  body.capacitor-scanning .topbar,
+  body.capacitor-scanning .scan-hint,
+  body.capacitor-scanning .scan-manual-btn,
+  body.capacitor-scanning .scan-lecture-total,
+  body.capacitor-scanning .toast-stack,
+  body.capacitor-scanning .offline-banner {
+    position: relative;
+    z-index: 50;
+  }
+  /* نخفي الـ scan-frame (إطار الفيديو) في وضع Capacitor لأن المسح يحدث بالكاميرا الأصلية */
+  body.capacitor-scanning .scan-frame {
+    visibility: hidden;
+  }
   .scan-frame {
     width: min(78vw, 300px); height: min(78vw, 300px);
     border-radius: 28px; overflow: hidden; position: relative;

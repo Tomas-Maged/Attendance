@@ -701,16 +701,36 @@ window.addEventListener('offline', () => { updateOfflineBanner(); toast('انق�
 
 /* ========================= الشاشة الرئيسية ========================= */
 async function loadHome() {
-  showListLoading('#homeList');
-  try {
-    state.activities = await callServer('getActivities');
-  } catch (err) {
-    state.activities = [];
-    if (!isOnline()) {
+  // --- cache-first: عرض البيانات المحفوظة فورًا ثم التحديث في الخلفية ---
+  const cachedActivities = OfflineStore.getCachedActivities();
+  if (cachedActivities && cachedActivities.length) {
+    state.activities = cachedActivities;
+    renderHome();                          // عرض فوري بدون loading
+  } else {
+    showListLoading('#homeList');          // أول مرة فقط (لا يوجد كاش بعد)
+  }
+
+  if (!isOnline()) {
+    if (!cachedActivities || !cachedActivities.length) {
+      state.activities = [];
+      renderHome();
       toast('غير متصل بالإنترنت', 'افتح نشاطًا سبق زيارته لمتابعة تسجيل الحضور أوفلاين', true);
     }
+    return;
   }
-  renderHome();
+
+  try {
+    const fresh = await callServer('getActivities');
+    OfflineStore.saveActivities(fresh);
+    state.activities = fresh;
+    renderHome();                          // تحديث بالبيانات الجديدة
+  } catch (err) {
+    if (!cachedActivities || !cachedActivities.length) {
+      state.activities = [];
+      renderHome();
+    }
+    // لو في كاش موجود، يفضل ظاهر بدون تغيير ولا رسالة خطأ مزعجة
+  }
 }
 
 function renderHome() {
@@ -722,6 +742,7 @@ function renderHome() {
   const list = $('#homeList');
   list.innerHTML = '';
   items.forEach(a => list.appendChild(renderActivityCard(a)));
+  applyListViewMode(localStorage.getItem('listViewMode') || 'list');
 }
 
 function renderActivityCard(a) {
@@ -948,12 +969,24 @@ async function openLecture(lecture, options) {
   }
 
   showView('view-lecture', options.animateBack ? 'back' : 'forward');
-  showListLoading('#lectureList');
   $('#lectureEmpty').style.display = 'none';
-  await refreshLectureList();
+
+  // --- cache-first: عرض الـsnapshot المحفوظ فورًا ---
+  const a = state.currentActivity;
+  const snapshot = OfflineStore.getSnapshot(a ? a.sheetId : null);
+  if (snapshot) {
+    state.lectureAttendance = snapshot.people.filter(p => p.cols && p.cols[lecture.column]);
+    renderLectureList();
+  } else {
+    showListLoading('#lectureList');
+  }
+
+  // ثم التحديث في الخلفية
+  await refreshLectureList({ fromCache: !!snapshot });
 }
 
-async function refreshLectureList() {
+async function refreshLectureList(options) {
+  options = options || {};
   const a = state.currentActivity;
   const l = state.currentLecture;
 
@@ -976,15 +1009,19 @@ async function refreshLectureList() {
     state.lectureAttendance = list.filter(p => p.attendedThisLecture || (p.cols && p.cols[l.column]));
     renderLectureList();
   } catch (err) {
-    const snapshot = OfflineStore.getSnapshot(a.sheetId);
-    if (snapshot) {
-      state.lectureAttendance = snapshot.people.filter(p => p.cols && p.cols[l.column]);
-      renderLectureList();
-      toast('تعذّر الاتصال بالخادم', 'يتم عرض آخر نسخة محفوظة محليًا', true);
-    } else {
-      $('#lectureList').innerHTML = '';
-      toast('تعذّر تحميل كشف الحضور', '', true);
+    // لو البيانات مش متعرضة بعد (لا كاش كان موجود)، أظهر رسالة
+    if (!options.fromCache) {
+      const snapshot = OfflineStore.getSnapshot(a.sheetId);
+      if (snapshot) {
+        state.lectureAttendance = snapshot.people.filter(p => p.cols && p.cols[l.column]);
+        renderLectureList();
+        toast('تعذّر الاتصال بالخادم', 'يتم عرض آخر نسخة محفوظة محليًا', true);
+      } else {
+        $('#lectureList').innerHTML = '';
+        toast('تعذّر تحميل كشف الحضور', '', true);
+      }
     }
+    // لو كان في كاش معروض بالفعل، لا نزعج المستخدم برسائل خطأ
   }
 }
 
@@ -1167,11 +1204,37 @@ async function renderPdfPages_(base64) {
 
 async function openCertificate(url, name) {
   $('#pdfViewerTitle').textContent = name || 'شهادة';
-  $('#pdfViewerBody').innerHTML = '<div class="pdf-viewer__loading">جاري تحميل الشهادة...</div>';
   $('#pdfShareBtn').disabled = true;
   $('#pdfDownloadBtn').disabled = true;
   currentCertFile = null;
   openSheet('sheetCertificateViewer');
+
+  // --- إصلاح 4: عرض الشهادة من الكاش فورًا إن وُجدت ---
+  const cached = OfflineStore.getCertificate(url);
+  if (cached) {
+    currentCertFile = {
+      base64: cached.base64,
+      mimeType: cached.mimeType || 'application/pdf',
+      fileName: sanitizeFileName_(name || cached.fileName) + '.pdf'
+    };
+    try {
+      if (window.pdfjsLib) {
+        await renderPdfPages_(cached.base64);
+      } else {
+        const dataUri = `data:${currentCertFile.mimeType};base64,${cached.base64}`;
+        $('#pdfViewerBody').innerHTML = `<embed src="${dataUri}" type="application/pdf" class="pdf-embed">`;
+      }
+      $('#pdfShareBtn').disabled = false;
+      $('#pdfDownloadBtn').disabled = false;
+      return;                      // عُرض من الكاش — لا حاجة لطلب شبكي
+    } catch (cacheErr) {
+      // الكاش تالف — نكمل ونجلب من الشبكة
+      currentCertFile = null;
+    }
+  }
+
+  // لا كاش أو كاش تالف — اجلب من GAS
+  $('#pdfViewerBody').innerHTML = '<div class="pdf-viewer__loading">جاري تحميل الشهادة...</div>';
 
   if (!isOnline()) {
     $('#pdfViewerBody').innerHTML = '<div class="pdf-viewer__loading">عرض الشهادات يحتاج اتصال بالإنترنت</div>';
@@ -1186,6 +1249,13 @@ async function openCertificate(url, name) {
       mimeType: data.mimeType || 'application/pdf',
       fileName: sanitizeFileName_(name || data.fileName) + '.pdf'
     };
+
+    // حفظ في الكاش للمرة القادمة
+    OfflineStore.saveCertificate(url, {
+      base64: data.base64,
+      mimeType: currentCertFile.mimeType,
+      fileName: sanitizeFileName_(name || data.fileName)
+    });
 
     if (window.pdfjsLib) {
       await renderPdfPages_(data.base64);
@@ -1351,40 +1421,55 @@ async function openScan(options) {
   await startScanner();
 }
 
+/* حالة المسح — تمنع تشغيل مسحين في نفس الوقت */
+let _scanActive = false;
+
 async function startScanner() {
+  if (_scanActive) return;
+  _scanActive = true;
 
   /* ── APK path ── Capacitor BarcodeScanner */
   if (IS_CAPACITOR) {
     try {
       const { BarcodeScanner } = Capacitor.Plugins;
 
-      /* نطلب الإذن أولاً إذا لم يُمنح بعد */
+      /* طلب الإذن — force:true يعرض حوار النظام عند الحاجة */
       const permission = await BarcodeScanner.checkPermission({ force: true });
       if (!permission.granted) {
+        _scanActive = false;
         $('#scanHint').textContent = 'يجب منح إذن الكاميرا من إعدادات الجهاز';
         toast('لم يُمنح إذن الكاميرا', 'افتح الإعدادات ومنح الإذن للتطبيق', true);
         return;
       }
 
-      /* نخفي محتوى WebView حتى تظهر معاينة الكاميرا خلفه */
-      document.body.style.background = 'transparent';
-      document.querySelector('#scanFrame').style.visibility = 'hidden';
+      /* نجعل WebView شفافًا حتى تظهر معاينة الكاميرا الأصلية خلفه */
+      document.body.classList.add('capacitor-scanning');
       BarcodeScanner.hideBackground();
 
-      const result = await BarcodeScanner.startScan();
-
-      /* نعيد الخلفية بعد الانتهاء */
-      document.body.style.background = '';
-      document.querySelector('#scanFrame').style.visibility = 'visible';
-      BarcodeScanner.showBackground();
-
-      if (result.hasContent) {
-        handleQrDetected(result.content); /* ← نفس الدالة الأصلية بدون تغيير */
-      }
+      /* حلقة مسح مستمرة: startScan() تنتهي عند أول QR واحد،
+         فنعيد تشغيلها بعد cooldown حتى يتمكن المستخدم من مسح أشخاص متعددين */
+      const scanLoop = async () => {
+        while (_scanActive) {
+          try {
+            const result = await BarcodeScanner.startScan();
+            if (result.hasContent) {
+              await handleQrDetected(result.content);
+              /* انتظر قصير قبل المسح التالي حتى تنتهي نغمة التأكيد */
+              await new Promise(r => setTimeout(r, 950));
+            }
+          } catch (scanErr) {
+            /* المستخدم أغلق الشاشة أو حدث خطأ — نوقف الحلقة */
+            _scanActive = false;
+          }
+        }
+        /* استعادة الواجهة بعد انتهاء الحلقة */
+        _restoreFromCapacitorScan_();
+      };
+      scanLoop();
 
     } catch (err) {
-      document.body.style.background = '';
-      document.querySelector('#scanFrame').style.visibility = 'visible';
+      _scanActive = false;
+      _restoreFromCapacitorScan_();
       $('#scanHint').textContent = 'تعذّر فتح الكاميرا — حاول مرة أخرى';
       toast('تعذّر فتح الكاميرا', err.message || '', true);
     }
@@ -1392,6 +1477,7 @@ async function startScanner() {
   }
 
   /* ── Browser path (original — unchanged) ── */
+  _scanActive = false; /* مسار المتصفح يدير حالته بنفسه */
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
     state.qrStream = stream;
@@ -1418,10 +1504,18 @@ async function startScanner() {
   }
 }
 
+function _restoreFromCapacitorScan_() {
+  try {
+    document.body.classList.remove('capacitor-scanning');
+    Capacitor.Plugins.BarcodeScanner.showBackground();
+  } catch (e) {}
+}
+
 function stopScanner() {
+  _scanActive = false;
   if (IS_CAPACITOR) {
     try { Capacitor.Plugins.BarcodeScanner.stopScan(); } catch (e) {}
-    document.body.style.background = '';
+    _restoreFromCapacitorScan_();
     return;
   }
   /* مسار المتصفح الأصلي — بدون تغيير */
@@ -1638,6 +1732,32 @@ const OfflineStore = {
     try { return JSON.parse(localStorage.getItem('snap_' + sheetId) || 'null'); }
     catch (e) { return null; }
   },
+  // --- إصلاح 1: كاش قائمة الأنشطة ---
+  saveActivities(activities) {
+    try { localStorage.setItem('cachedActivities', JSON.stringify(activities)); } catch (e) {}
+  },
+  getCachedActivities() {
+    try { return JSON.parse(localStorage.getItem('cachedActivities') || 'null'); }
+    catch (e) { return null; }
+  },
+  // --- إصلاح 4: كاش الشهادات ---
+  saveCertificate(url, data) {
+    try {
+      const key = 'cert_' + btoa(encodeURIComponent(url)).slice(0, 60);
+      localStorage.setItem(key, JSON.stringify({ base64: data.base64, mimeType: data.mimeType, fileName: data.fileName, cachedAt: Date.now() }));
+    } catch (e) {}
+  },
+  getCertificate(url) {
+    try {
+      const key = 'cert_' + btoa(encodeURIComponent(url)).slice(0, 60);
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // تحقق من صحة البيانات
+      if (!parsed || !parsed.base64 || !parsed.mimeType) return null;
+      return parsed;
+    } catch (e) { return null; }
+  },
   getQueue() {
     try { return JSON.parse(localStorage.getItem('offlineQueue') || '[]'); }
     catch (e) { return []; }
@@ -1803,6 +1923,7 @@ async function syncPendingQueue() {
   isSyncingQueue = true;
   updateOfflineBanner();
 
+  // تجميع السجلات حسب (sheetId + lectureColumn)
   const groups = {};
   queue.forEach(r => {
     const key = r.sheetId + '::' + r.lectureColumn;
@@ -1819,8 +1940,17 @@ async function syncPendingQueue() {
     const column = Number(columnStr);
 
     try {
+      // --- إصلاح 5أ: batchSyncAttendance يرجع بيانات محدّثة من GAS مباشرة.
+      //     لا نطلب getAttendanceList بعده — GAS يمكن أن يُرجع الـ snapshot
+      //     المحدّث. لو ما أرجعه، نطلب مرة واحدة فقط.
       const results = await callServer('batchSyncAttendance', sheetId, column, groups[key]);
-      results.forEach(r => {
+
+      // استخرج القائمة المحدّثة التي قد يُرجعها GAS مع نتائج الـ batch
+      // (إن لم يُرجعها، ستكون null ونطلبها بعد ذلك مرة واحدة)
+      let updatedList = (results && results.updatedList) ? results.updatedList : null;
+      const batchResults = Array.isArray(results) ? results : (results && results.results ? results.results : []);
+
+      batchResults.forEach(r => {
         if (r.status === 'success' || r.status === 'duplicate') {
           OfflineStore.removeFromQueue(r.localId);
           syncedCount++;
@@ -1829,16 +1959,30 @@ async function syncPendingQueue() {
         }
       });
 
-      const list = await callServer('getAttendanceList', sheetId, column);
-      const activity = (OfflineStore.getSnapshot(sheetId) || {}).activity;
-      OfflineStore.saveSnapshot(sheetId, { activity, people: list, snapshotAt: new Date().toISOString() });
+      // --- إصلاح 5ب: طلب واحد فقط لـ getAttendanceList إذا لم يأتِ مع الـ batch ---
+      if (!updatedList) {
+        updatedList = await callServer('getAttendanceList', sheetId, column);
+      }
 
+      const activity = (OfflineStore.getSnapshot(sheetId) || {}).activity;
+      OfflineStore.saveSnapshot(sheetId, { activity, people: updatedList, snapshotAt: new Date().toISOString() });
+
+      // --- إصلاح 5ج: تحديث الشاشة الحالية مباشرةً من البيانات التي جلبناها
+      //     بدون استدعاء refreshLectureList() (الذي كان يطلب getAttendanceList مرة أخرى) ---
       if (state.currentActivity && state.currentActivity.sheetId === sheetId) {
-        if (state.currentLecture && state.currentLecture.column === column && $('#view-lecture').classList.contains('is-active')) {
-          await refreshLectureList();
+        if (
+          state.currentLecture &&
+          state.currentLecture.column === column &&
+          $('#view-lecture').classList.contains('is-active')
+        ) {
+          // تحديث مباشر بدون طلب شبكي إضافي
+          state.lectureAttendance = updatedList.filter(
+            p => p.attendedThisLecture || (p.cols && p.cols[column])
+          );
+          renderLectureList();
         }
         if ($('#view-attendance').classList.contains('is-active')) {
-          state.fullAttendance = list;
+          state.fullAttendance = updatedList;
           renderFullAttendance();
         }
       }
